@@ -71,7 +71,7 @@ func usage(w io.Writer) {
 	fmt.Fprintln(w, "          adverse | safety | timeline | trials | publications |")
 	fmt.Fprintln(w, "          evidence | device-report | compare | emerging | score |")
 	fmt.Fprintln(w, "          analytics | signals | dossier | sync | watch | workflow |")
-	fmt.Fprintln(w, "          export | doctor")
+	fmt.Fprintln(w, "          export | doctor | serve")
 	fmt.Fprintln(w, "output flags (any command): --json | --csv | --agent | --plain")
 }
 
