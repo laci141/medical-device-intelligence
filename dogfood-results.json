@@ -1,0 +1,278 @@
+{
+  "phase": "2e-dogfood",
+  "date": "2026-07-10",
+  "device": "pacemaker",
+  "commit": "13f041d",
+  "runs": [
+    {
+      "command": "sync pacemaker",
+      "exit_code": 0,
+      "sources": {
+        "openfda_device_recall": {
+          "fetched": 50,
+          "available": 197
+        },
+        "openfda_device_event": {
+          "fetched": 50,
+          "available": 719005
+        },
+        "openfda_device_udi": {
+          "fetched": 28,
+          "available": 28
+        },
+        "pubmed": {
+          "fetched": 50,
+          "available": 43926
+        }
+      }
+    },
+    {
+      "command": "signals -device pacemaker",
+      "exit_code": 0,
+      "signals_total": 11,
+      "signals_readable": 9
+    },
+    {
+      "command": "dossier -device pacemaker",
+      "exit_code": 0,
+      "attention_index": 0.47,
+      "signals_measured": 9
+    },
+    {
+      "command": "export -csv -out export-pacemaker.csv",
+      "exit_code": 0,
+      "records_exported": 228
+    }
+  ],
+  "exit_code_contract": {
+    "ok": 0,
+    "bad_flag": 2,
+    "verified": true
+  },
+  "signals_envelope": {
+    "count": 11,
+    "disclaimer": "Disclaimer: this tool reports public regulatory/records data (FDA, ClinicalTrials.gov, PubMed, and others). It is not medical advice and is not a safety verdict. Absence of records is not evidence of safety. Consult a regulator or a qualified clinician for medical decisions.",
+    "records": [
+      {
+        "confidence": "HIGH",
+        "label": "Medium",
+        "reasoning": "719005 MAUDE reports: 16980 deaths, 309695 injuries, 391402 malfunctions; weighted mean se...",
+        "signal": "SEVERITY",
+        "value": 0.45
+      },
+      {
+        "confidence": "HIGH",
+        "label": "Critical",
+        "reasoning": "719202 public records (719005 MAUDE events + 197 recalls) vs p95 volume 444319 across the ...",
+        "signal": "VOLUME",
+        "value": 1
+      },
+      {
+        "confidence": "HIGH",
+        "label": "Low",
+        "reasoning": "stable: 21599 reports in the last 90 days vs 20239.2 average over the prior 4 periods (+7%...",
+        "signal": "VOLUME_SHIFT",
+        "value": 0.02
+      },
+      {
+        "confidence": "MEDIUM",
+        "label": "High",
+        "reasoning": "197 recalls: 31 Class I, 164 Class II, 2 Class III; weighted mean class (I=1.0, II=0.5, II...",
+        "signal": "RECALL_SEVERITY",
+        "value": 0.58
+      },
+      {
+        "confidence": "HIGH",
+        "label": "Critical",
+        "reasoning": "4 of 4 public feeds hold records: MAUDE events (719005), device trials (483), publications...",
+        "signal": "CORROBORATION",
+        "value": 1
+      },
+      {
+        "confidence": "HIGH",
+        "label": "Low",
+        "reasoning": "44409 evidence records (483 trials + 43926 publications) against 719005 MAUDE events = 61....",
+        "signal": "EVIDENCE_GAP",
+        "value": 0
+      },
+      {
+        "confidence": "HIGH",
+        "label": "Low",
+        "reasoning": "device severity 0.45 is above the global MAUDE mix 0.41 (delta +0.03; +0.30 saturates at 1...",
+        "signal": "PEER_SEVERITY_DELTA",
+        "value": 0.11
+      },
+      {
+        "confidence": "HIGH",
+        "label": "Low",
+        "reasoning": "phase: mature (decade windows oldest→newest: 61669 → 95761 → 105228 → 127494 → 1...",
+        "signal": "LIFECYCLE_PHASE",
+        "value": 0.11
+      },
+      {
+        "confidence": "HIGH",
+        "label": "Critical",
+        "reasoning": "newest recall initiated 20260227 (134 days ago; today=1.0 fading to 0.0 at five years); re...",
+        "signal": "RECALL_RECENCY",
+        "value": 0.93
+      },
+      {
+        "confidence": "HIGH",
+        "label": "Medium",
+        "reasoning": "444883 of 1289526 source-typed reports come from independent reporters (health professiona...",
+        "signal": "INDEPENDENT_REPORTING",
+        "value": 0.34
+      },
+      {
+        "confidence": "HIGH",
+        "label": "Low",
+        "reasoning": "113284 of 719005 reports have no date_of_event (16%); a completeness gap that weakens time...",
+        "signal": "MISSING_EVENT_DATES",
+        "value": 0.16
+      }
+    ],
+    "summary": {
+      "device": "pacemaker",
+      "note": "explainable public-record signals, not a risk score",
+      "readable": 9,
+      "signals": 11
+    }
+  },
+  "dossier_envelope": {
+    "attention_index": 0.47,
+    "data_quality": [
+      "INDEPENDENT_REPORTING: 444883 of 1289526 source-typed reports come from independent reporters (health professionals, patients, user facilities) vs 434732 company-filed and 409911 other; MAUDE casing variants merged; a reading about data provenance, not the device",
+      "MISSING_EVENT_DATES: 113284 of 719005 reports have no date_of_event (16%); a completeness gap that weakens time-based readings (trend, surge, lifecycle) — about the data, not the device"
+    ],
+    "device": "pacemaker",
+    "disclaimer": "Disclaimer: this tool reports public regulatory/records data (FDA, ClinicalTrials.gov, PubMed, and others). It is not medical advice and is not a safety verdict. Absence of records is not evidence of safety. Consult a regulator or a qualified clinician for medical decisions.",
+    "generated_at": "2026-07-10T12:03:16Z",
+    "highlights": [
+      "telemetry/volume = 1.00 (Critical): 719202 public records (719005 MAUDE events + 197 recalls) vs p95 volume 444319 across the 100 most-reported device types",
+      "correlation/corroboration = 1.00 (Critical): 4 of 4 public feeds hold records: MAUDE events (719005), device trials (483), publications (43926), recalls (197) — corroboration measures documentation breadth, not hazard",
+      "lifecycle/recall-recency = 0.93 (Critical): newest recall initiated 20260227 (134 days ago; today=1.0 fading to 0.0 at five years); recency of enforcement activity, not a harm reading"
+    ],
+    "index_formula": "attention_index = mean(value) over readable (non-Unknown) signals; measures public-record attention, NOT risk",
+    "notes": null,
+    "reasoning": "attention index 0.47 over 9 readable signals (2 data-quality readings reported separately); mean(value) over readable (non-Unknown) signals; measures public-record attention, NOT risk",
+    "signals": [
+      {
+        "confidence_level": "HIGH",
+        "label": "Medium",
+        "reasoning": "719005 MAUDE reports: 16980 deaths, 309695 injuries, 391402 malfunctions; weighted mean severity (death=1.0, injury=0.6, malfunction=0.3)",
+        "signal_type": "SEVERITY",
+        "source_type": [
+          "openfda_maude"
+        ],
+        "value": 0.45
+      },
+      {
+        "confidence_level": "HIGH",
+        "label": "Critical",
+        "reasoning": "719202 public records (719005 MAUDE events + 197 recalls) vs p95 volume 444319 across the 100 most-reported device types",
+        "signal_type": "VOLUME",
+        "source_type": [
+          "openfda_maude",
+          "openfda_recall"
+        ],
+        "value": 1
+      },
+      {
+        "confidence_level": "HIGH",
+        "label": "Low",
+        "reasoning": "stable: 21599 reports in the last 90 days vs 20239.2 average over the prior 4 periods (+7%; +300% saturates at 1.0); reporting lag undercounts the recent window",
+        "signal_type": "VOLUME_SHIFT",
+        "source_type": [
+          "openfda_maude"
+        ],
+        "value": 0.02
+      },
+      {
+        "confidence_level": "MEDIUM",
+        "label": "High",
+        "reasoning": "197 recalls: 31 Class I, 164 Class II, 2 Class III; weighted mean class (I=1.0, II=0.5, III=0.2)",
+        "signal_type": "RECALL_SEVERITY",
+        "source_type": [
+          "openfda_recall"
+        ],
+        "value": 0.58
+      },
+      {
+        "confidence_level": "HIGH",
+        "label": "Critical",
+        "reasoning": "4 of 4 public feeds hold records: MAUDE events (719005), device trials (483), publications (43926), recalls (197) — corroboration measures documentation breadth, not hazard",
+        "signal_type": "CORROBORATION",
+        "source_type": [
+          "openfda_maude",
+          "openfda_recall",
+          "clinicaltrials",
+          "pubmed"
+        ],
+        "value": 1
+      },
+      {
+        "confidence_level": "HIGH",
+        "label": "Low",
+        "reasoning": "44409 evidence records (483 trials + 43926 publications) against 719005 MAUDE events = 61.8 per 1000 events (50+/1000 reads as no gap); a gap flags thin literature, not proven harm",
+        "signal_type": "EVIDENCE_GAP",
+        "source_type": [
+          "openfda_maude",
+          "clinicaltrials",
+          "pubmed"
+        ],
+        "value": 0
+      },
+      {
+        "confidence_level": "HIGH",
+        "label": "Low",
+        "reasoning": "device severity 0.45 is above the global MAUDE mix 0.41 (delta +0.03; +0.30 saturates at 1.0); severity weights: death=1.0, injury=0.6, malfunction=0.3",
+        "signal_type": "PEER_SEVERITY_DELTA",
+        "source_type": [
+          "openfda_maude"
+        ],
+        "value": 0.11
+      },
+      {
+        "confidence_level": "HIGH",
+        "label": "Low",
+        "reasoning": "phase: mature (decade windows oldest→newest: 61669 → 95761 → 105228 → 127494 → 141028; newest vs previous 141028 vs 127494, decade peak 141028); value is trajectory instability, not hazard; reporting lag undercounts the newest window",
+        "signal_type": "LIFECYCLE_PHASE",
+        "source_type": [
+          "openfda_maude"
+        ],
+        "value": 0.11
+      },
+      {
+        "confidence_level": "HIGH",
+        "label": "Critical",
+        "reasoning": "newest recall initiated 20260227 (134 days ago; today=1.0 fading to 0.0 at five years); recency of enforcement activity, not a harm reading",
+        "signal_type": "RECALL_RECENCY",
+        "source_type": [
+          "openfda_recall"
+        ],
+        "value": 0.93
+      },
+      {
+        "confidence_level": "HIGH",
+        "label": "Medium",
+        "reasoning": "444883 of 1289526 source-typed reports come from independent reporters (health professionals, patients, user facilities) vs 434732 company-filed and 409911 other; MAUDE casing variants merged; a reading about data provenance, not the device",
+        "signal_type": "INDEPENDENT_REPORTING",
+        "source_type": [
+          "openfda_maude"
+        ],
+        "value": 0.34
+      },
+      {
+        "confidence_level": "HIGH",
+        "label": "Low",
+        "reasoning": "113284 of 719005 reports have no date_of_event (16%); a completeness gap that weakens time-based readings (trend, surge, lifecycle) — about the data, not the device",
+        "signal_type": "MISSING_EVENT_DATES",
+        "source_type": [
+          "openfda_maude"
+        ],
+        "value": 0.16
+      }
+    ],
+    "signals_measured": 9
+  }
+}
