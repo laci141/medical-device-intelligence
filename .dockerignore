@@ -1,0 +1,18 @@
+# Build artifacts and local-only files kept out of the Docker build context
+*.exe
+*.exe~
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+dogfood-results.json
+export-pacemaker.csv
+phase2-dashboard.html
+/tmp
+scratchpad/
+.git
+.env
+*.local
+Dockerfile
+.dockerignore
