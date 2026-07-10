@@ -5,375 +5,629 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>medical-device-intelligence</title>
 <script>
-  // Apply persisted theme before first paint to avoid a flash of the wrong theme.
+  // Apply persisted theme before first paint. Dark is the design default;
+  // only an explicit stored "light" flips to the light glass theme.
   (function () {
     try {
-      var t = localStorage.getItem('theme');
-      if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+      if (localStorage.getItem('theme') === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
     } catch (e) { /* localStorage unavailable */ }
   })();
 </script>
 <style>
+  /* ---- Theme tokens: dark "liquid glass" is the default ---- */
   :root {
-    --blue-900: #0c3a66;
-    --blue-700: #1565c0;
-    --blue-600: #1976d2;
-    --blue-100: #dbeafe;
-    --blue-50:  #eff6ff;
-    --ink:      #1e293b;
-    --ink-2:    #475569;
-    --ink-3:    #64748b;
-    --surface:  #ffffff;
-    --page:     #f1f5f9;
-    --green:    #15803d;
-    --border:   #e2e8f0;
-    --red-bg:   #fef2f2;
-    --red-bd:   #fecaca;
-    --red-ink:  #b91c1c;
-    --amber-bg: #fffbeb;
-    --amber-bd: #fde68a;
-    --amber-ink:#b45309;
-    --gray-bg:  #f1f5f9;
-    --gray-bd:  #e2e8f0;
-    --gray-ink: #475569;
+    --bg-a: #0a0f1e;
+    --bg-b: #101a35;
+    --orb-1: rgba(37, 99, 235, 0.35);
+    --orb-2: rgba(129, 140, 248, 0.28);
+    --orb-3: rgba(14, 165, 165, 0.22);
+    --glass: rgba(255, 255, 255, 0.06);
+    --glass-strong: rgba(255, 255, 255, 0.09);
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --glass-glow: rgba(120, 160, 255, 0.18);
+    --ink:   #e8edf7;
+    --ink-2: #b6c2d9;
+    --ink-3: #8494b2;
+    --accent:   #60a5fa;
+    --accent-2: #818cf8;
+    --good:     #22c55e;
+    --warn:     #eab308;
+    --high:     #f97316;
+    --crit:     #ef4444;
+    --mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", monospace;
+    --sans: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
   }
-
-  :root[data-theme="dark"] {
-    --blue-900: #7fb8ff;
-    --blue-700: #93c5fd;
-    --blue-600: #60a5fa;
-    --blue-100: #1e3a5f;
-    --blue-50:  #16283f;
-    --ink:      #e2e8f0;
-    --ink-2:    #cbd5e1;
-    --ink-3:    #94a3b8;
-    --surface:  #1e293b;
-    --page:     #0f172a;
-    --green:    #4ade80;
-    --border:   #334155;
-    --red-bg:   #3f1d1d;
-    --red-bd:   #7f1d1d;
-    --red-ink:  #fca5a5;
-    --amber-bg: #3f2d0d;
-    --amber-bd: #78350f;
-    --amber-ink:#fcd34d;
-    --gray-bg:  #1e293b;
-    --gray-bd:  #334155;
-    --gray-ink: #cbd5e1;
+  :root[data-theme="light"] {
+    --bg-a: #eef3fb;
+    --bg-b: #d9e6f7;
+    --orb-1: rgba(37, 99, 235, 0.18);
+    --orb-2: rgba(129, 140, 248, 0.16);
+    --orb-3: rgba(13, 148, 136, 0.12);
+    --glass: rgba(255, 255, 255, 0.55);
+    --glass-strong: rgba(255, 255, 255, 0.72);
+    --glass-border: rgba(12, 58, 102, 0.14);
+    --glass-glow: rgba(37, 99, 235, 0.14);
+    --ink:   #16233c;
+    --ink-2: #3b4d6b;
+    --ink-3: #64748b;
+    --accent:   #1d4ed8;
+    --accent-2: #4f46e5;
+    --good:     #15803d;
+    --warn:     #a16207;
+    --high:     #c2410c;
+    --crit:     #b91c1c;
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
-  html { background: var(--page); }
+  html { background: var(--bg-a); }
 
   body {
-    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
-    background: var(--page);
+    font-family: var(--sans);
     color: var(--ink);
     min-height: 100vh;
     font-size: 1rem;
+    background: linear-gradient(160deg, var(--bg-a), var(--bg-b));
+    position: relative;
+    overflow-x: hidden;
   }
 
-  /* Centered content column: the width cap lives on a wrapper, not on body,
-     so browser zoom keeps the column centered instead of hugging the left. */
+  /* Blurred color orbs behind the glass layers — pure CSS, no images. */
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(90px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .orb-1 { width: 480px; height: 480px; top: -120px; left: -100px; background: radial-gradient(circle, var(--orb-1), transparent 70%); }
+  .orb-2 { width: 420px; height: 420px; top: 30%; right: -140px; background: radial-gradient(circle, var(--orb-2), transparent 70%); }
+  .orb-3 { width: 380px; height: 380px; bottom: -120px; left: 30%; background: radial-gradient(circle, var(--orb-3), transparent 70%); }
+
   .container {
+    position: relative;
+    z-index: 1;
     width: 100%;
-    max-width: 1100px;
+    max-width: 1180px;
     margin: 0 auto;
-    padding: 1.5rem;
+    padding: 1.25rem 1.5rem 2rem;
   }
 
+  /* ---- Shared glass card ---- */
+  .glass {
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--glass-border);
+    border-radius: 18px;
+    transition: box-shadow 150ms ease, border-color 150ms ease;
+  }
+  .glass:hover {
+    box-shadow: 0 0 0 1px var(--glass-border), 0 8px 32px var(--glass-glow), inset 0 0 24px rgba(255,255,255,0.03);
+  }
+
+  /* ---- Header: thin glass bar ---- */
   header {
-    background: linear-gradient(135deg, var(--blue-900), var(--blue-600));
-    color: #fff;
-    border-radius: 12px;
-    padding: 1.5rem 1.75rem;
-    margin-bottom: 1.5rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
+    gap: 12px;
     flex-wrap: wrap;
+    padding: 0.7rem 1.1rem;
+    margin-bottom: 1.25rem;
   }
-  :root[data-theme="dark"] header { color: #0f172a; }
-
-  header .title-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-  header h1 { font-size: 1.4rem; font-weight: 600; letter-spacing: 0.2px; }
-
+  header h1 { font-size: 1.05rem; font-weight: 700; letter-spacing: 0.2px; }
   .badge {
     display: inline-block;
-    background: rgba(255,255,255,0.18);
-    border: 1px solid rgba(255,255,255,0.35);
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--ink-2);
+    border: 1px solid var(--glass-border);
     border-radius: 999px;
-    padding: 3px 12px;
-    font-size: 0.82rem;
+    padding: 2px 10px;
+    margin-left: 10px;
   }
-
   .theme-toggle {
-    background: rgba(255,255,255,0.18);
-    border: 1px solid rgba(255,255,255,0.35);
+    background: var(--glass-strong);
+    border: 1px solid var(--glass-border);
     border-radius: 999px;
     color: inherit;
-    font-size: 1.1rem;
-    padding: 6px 14px;
+    font-size: 1rem;
+    padding: 5px 13px;
     cursor: pointer;
     line-height: 1;
   }
-  .theme-toggle:hover { background: rgba(255,255,255,0.3); }
 
-  h2 {
-    font-size: 0.8rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--ink-3);
-    margin: 24px 0 12px;
+  /* ---- Intro hero ---- */
+  .intro {
+    padding: 1.3rem 1.4rem 1.1rem;
+    margin-bottom: 1rem;
   }
+  .intro p {
+    font-size: 0.95rem;
+    color: var(--ink-2);
+    line-height: 1.6;
+    max-width: 72ch;
+  }
+  .intro strong { color: var(--ink); }
+  .example-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+    align-items: center;
+  }
+  .example-row .try { font-size: 0.78rem; color: var(--ink-3); }
+  .chip-btn {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    color: var(--accent);
+    background: var(--glass-strong);
+    border: 1px solid var(--glass-border);
+    border-radius: 999px;
+    padding: 5px 14px;
+    cursor: pointer;
+    transition: border-color 150ms ease;
+  }
+  .chip-btn:hover { border-color: var(--accent); }
 
-  section.search .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 18px;
+  /* ---- Search panel ---- */
+  .search-panel {
+    padding: 1.2rem 1.3rem;
+    margin-bottom: 1.25rem;
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
+    align-items: center;
   }
-
   #device-input {
-    flex: 1 1 220px;
+    flex: 1 1 260px;
     min-width: 0;
-    padding: 10px 14px;
-    font-size: 0.95rem;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--surface);
+    padding: 12px 16px;
+    font-size: 1rem;
+    font-family: var(--sans);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    background: var(--glass-strong);
     color: var(--ink);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
   }
-  #device-input:focus { outline: 2px solid var(--blue-600); outline-offset: 1px; }
-
+  #device-input::placeholder { color: var(--ink-3); }
+  #device-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
   #search-btn {
-    padding: 10px 22px;
+    padding: 12px 26px;
     font-size: 0.95rem;
-    font-weight: 600;
-    background: var(--blue-600);
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
     color: #fff;
     border: none;
-    border-radius: 8px;
+    border-radius: 12px;
     cursor: pointer;
+    transition: filter 150ms ease;
   }
-  #search-btn:hover:not(:disabled) { background: var(--blue-700); }
-  #search-btn:disabled { opacity: 0.6; cursor: default; }
+  #search-btn:hover:not(:disabled) { filter: brightness(1.12); }
+  #search-btn:disabled { opacity: 0.55; cursor: default; }
+  .inline-msg { width: 100%; font-size: 0.85rem; color: var(--ink-3); }
 
-  .inline-msg {
-    width: 100%;
-    font-size: 0.88rem;
+  h2.section {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-2);
+    margin: 1.6rem 0 0.25rem;
+    font-weight: 700;
+  }
+  .group-desc {
+    font-size: 0.83rem;
     color: var(--ink-3);
-    margin-top: 4px;
+    margin-bottom: 0.7rem;
   }
 
-  /* Loading */
-  .loading-row {
+  /* ---- Bento top zone ---- */
+  .bento-top {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr 1fr;
+    grid-template-rows: auto auto;
+    grid-template-areas:
+      "hero hl1 hl2"
+      "hero hl3 dq";
+    gap: 14px;
+  }
+  .area-hero { grid-area: hero; }
+  .area-hl1  { grid-area: hl1; }
+  .area-hl2  { grid-area: hl2; }
+  .area-hl3  { grid-area: hl3; }
+  .area-dq   { grid-area: dq; }
+
+  .hero-card {
+    padding: 1.4rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 10px;
+  }
+  .hero-card .device-name {
+    font-family: var(--mono);
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .gauge-wrap { position: relative; width: 170px; height: 170px; }
+  .gauge-wrap svg { transform: rotate(-90deg); }
+  .gauge-track { fill: none; stroke: var(--glass-border); stroke-width: 12; }
+  .gauge-fill {
+    fill: none;
+    stroke-width: 12;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1s ease-out;
+  }
+  .gauge-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .gauge-center .num {
+    font-family: var(--mono);
+    font-size: 2.1rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .gauge-center .lbl { font-size: 0.68rem; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.1em; }
+  .hero-card .plain-read { font-size: 0.9rem; color: var(--ink); max-width: 34ch; line-height: 1.5; }
+  .hero-card .meta { font-size: 0.82rem; color: var(--ink-2); }
+  .hero-card .formula {
+    font-family: var(--mono);
+    font-size: 0.66rem;
+    color: var(--ink-3);
+    line-height: 1.5;
+    max-width: 36ch;
+  }
+  .caveat {
+    font-size: 0.75rem;
+    color: var(--warn);
+    border: 1px solid var(--glass-border);
+    background: var(--glass);
+    border-radius: 999px;
+    padding: 4px 12px;
+  }
+
+  .mini-card { padding: 1rem 1.1rem; display: flex; flex-direction: column; gap: 7px; }
+  .mini-card .mini-title {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-3);
+  }
+  .mini-card .mini-lead { font-size: 0.88rem; color: var(--ink); line-height: 1.45; font-weight: 600; }
+  .mini-card .mini-body { font-size: 0.82rem; color: var(--ink-2); line-height: 1.45; }
+
+  /* Data-health mini gauges */
+  .dq-gauges { display: flex; gap: 16px; flex-wrap: wrap; margin: 4px 0; }
+  .mini-gauge { position: relative; width: 74px; height: 74px; flex: none; }
+  .mini-gauge svg { transform: rotate(-90deg); }
+  .mg-track { fill: none; stroke: var(--glass-border); stroke-width: 7; }
+  .mg-fill  { fill: none; stroke-width: 7; stroke-linecap: round; transition: stroke-dashoffset 900ms ease-out; }
+  .mini-gauge .mg-num {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 0.86rem; font-weight: 700;
+  }
+  .dq-gauge-item { display: flex; align-items: center; gap: 10px; }
+  .dq-gauge-item .mg-label { font-size: 0.76rem; color: var(--ink-2); max-width: 16ch; line-height: 1.35; }
+
+  .dq-list { list-style: none; }
+  .dq-list li {
+    font-size: 0.78rem;
+    color: var(--ink-3);
+    padding: 4px 0;
+    line-height: 1.4;
+  }
+  .dq-warning { font-size: 0.8rem; color: var(--warn); }
+
+  /* ---- Signals bento grid ---- */
+  .signals-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    grid-auto-flow: dense;
+    gap: 14px;
+  }
+  .signal-card { padding: 1rem 1.1rem; display: flex; flex-direction: column; gap: 8px; }
+  .signal-card.span2 { grid-column: span 2; }
+  .signal-card.sig-unknown { opacity: 0.62; }
+
+  .signal-card .top-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .signal-card .sig-name {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .signal-card .sig-code {
+    font-family: var(--mono);
+    font-size: 0.64rem;
+    letter-spacing: 0.05em;
+    color: var(--ink-3);
+    display: block;
+    margin-top: 1px;
+  }
+  .signal-card .sig-value {
+    font-family: var(--mono);
+    font-size: 1.45rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+  }
+  .signal-card .plain-q { font-size: 0.8rem; color: var(--ink-3); font-style: italic; }
+
+  .bar-track {
+    width: 100%;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--glass-border);
+    overflow: hidden;
+  }
+  .bar-fill { height: 100%; border-radius: 999px; transition: width 700ms ease-out; }
+
+  .chip-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 2px 10px;
+    border: 1px solid var(--glass-border);
+    background: var(--glass);
+    color: var(--ink-2);
+  }
+  .chip.label-low      { color: var(--good); }
+  .chip.label-medium   { color: var(--warn); }
+  .chip.label-high     { color: var(--high); }
+  .chip.label-critical { color: var(--crit); }
+  .chip.label-unknown  { color: var(--ink-3); }
+  .src-badge {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 0.64rem;
+    color: var(--ink-3);
+    border: 1px solid var(--glass-border);
+    border-radius: 6px;
+    padding: 1px 7px;
+  }
+
+  /* ---- Progressive disclosure ---- */
+  .disclosure { border-top: 1px solid var(--glass-border); padding-top: 7px; }
+  .disclosure-btn {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-size: 0.76rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+    text-align: left;
+  }
+  .disclosure-btn:hover { text-decoration: underline; }
+  .disclosure-body { margin-top: 6px; display: flex; flex-direction: column; gap: 6px; }
+  .disclosure-body p { font-size: 0.8rem; color: var(--ink-2); line-height: 1.5; }
+  .disclosure-body .why { color: var(--ink-3); }
+  .disclosure-body .method { font-family: var(--mono); font-size: 0.72rem; color: var(--ink-3); line-height: 1.55; }
+  .disclosure-body .raw { font-size: 0.74rem; color: var(--ink-3); line-height: 1.5; font-style: italic; }
+  .badge-row { display: flex; gap: 5px; flex-wrap: wrap; }
+
+  /* ---- Evidence layer: parsed numbers, mini charts, verify links ---- */
+  .trust-meta {
+    font-family: var(--mono);
+    font-size: 0.63rem;
+    letter-spacing: 0.03em;
+    color: var(--ink-3);
+  }
+  .ev { display: flex; flex-direction: column; gap: 4px; margin-top: 2px; }
+  .ev-row { display: grid; grid-template-columns: minmax(70px, 96px) 1fr auto; gap: 8px; align-items: center; }
+  .ev-label { font-size: 0.66rem; color: var(--ink-3); font-family: var(--mono); }
+  .ev-track { height: 8px; border-radius: 999px; background: var(--glass-border); overflow: hidden; }
+  .ev-fill { height: 100%; border-radius: 999px; }
+  .ev-num { font-family: var(--mono); font-size: 0.66rem; color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ev-table { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
+  .ev-table td { padding: 3px 6px; border-bottom: 1px solid var(--glass-border); color: var(--ink-2); }
+  .ev-table td:last-child { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .ev-table tr:last-child td { border-bottom: none; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+  .stat-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .stat-chip { flex: 1 1 70px; text-align: center; border: 1px solid var(--glass-border); border-radius: 10px; padding: 6px 4px; background: var(--glass); }
+  .stat-chip .n { font-family: var(--mono); font-weight: 700; font-size: 0.82rem; color: var(--ink); }
+  .stat-chip .l { font-size: 0.6rem; color: var(--ink-3); }
+  .stacked { display: flex; height: 10px; border-radius: 999px; overflow: hidden; }
+  .stacked span { height: 100%; }
+  .legend { display: flex; gap: 10px; flex-wrap: wrap; font-size: 0.64rem; color: var(--ink-3); font-family: var(--mono); margin-top: 4px; }
+  .timeline { position: relative; height: 30px; }
+  .tl-track { position: absolute; top: 14px; left: 0; right: 0; height: 4px; border-radius: 999px; background: var(--glass-border); }
+  .tl-marker { position: absolute; top: 7px; width: 2px; height: 18px; background: var(--high); }
+  .tl-lab { position: absolute; top: 0; font-size: 0.6rem; font-family: var(--mono); color: var(--ink-3); white-space: nowrap; }
+  .tl-lab.end { right: 0; }
+  .scale-band { position: relative; height: 32px; }
+  .sb-track { position: absolute; top: 15px; left: 0; right: 0; height: 4px; border-radius: 999px; background: var(--glass-border); }
+  .sb-marker { position: absolute; top: 8px; width: 2px; height: 18px; }
+  .sb-lab { position: absolute; top: 0; font-size: 0.6rem; font-family: var(--mono); white-space: nowrap; }
+  .check-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .check-chip {
+    font-size: 0.66rem;
+    font-family: var(--mono);
+    border: 1px solid var(--glass-border);
+    border-radius: 999px;
+    padding: 2px 9px;
+    color: var(--good);
+    background: var(--glass);
+  }
+  .check-chip.miss { color: var(--ink-3); }
+  .sparkline { width: 100%; height: 34px; }
+  .sparkline polyline { fill: none; stroke: var(--accent); stroke-width: 2; }
+  .sparkline circle { fill: var(--accent); }
+  .spark-note { font-size: 0.62rem; color: var(--ink-3); font-family: var(--mono); }
+  .mini-donut-row { display: flex; align-items: center; gap: 10px; }
+  .verify { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+  .verify .v-title { font-size: 0.72rem; font-weight: 700; color: var(--ink-2); }
+  .verify a { color: var(--accent); font-size: 0.73rem; text-decoration: none; word-break: break-all; }
+  .verify a:hover { text-decoration: underline; }
+  .verify .note { font-size: 0.66rem; color: var(--ink-3); font-style: italic; }
+
+  /* ---- Error card ---- */
+  .error-card {
+    border-color: rgba(239, 68, 68, 0.4);
+    color: var(--crit);
+    padding: 1rem 1.2rem;
+    margin-top: 12px;
+  }
+  .error-card .status { font-weight: 700; margin-bottom: 4px; }
+  .error-card div:not(.status) { color: var(--ink-2); font-size: 0.9rem; }
+
+  /* ---- Skeleton loading ---- */
+  .skeleton-note {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 14px 4px;
+    font-size: 0.85rem;
     color: var(--ink-2);
-    font-size: 0.92rem;
+    margin: 0.4rem 0 0.9rem;
   }
   .spinner {
-    width: 18px;
-    height: 18px;
-    border: 3px solid var(--blue-100);
-    border-top-color: var(--blue-600);
+    width: 16px; height: 16px;
+    border: 3px solid var(--glass-border);
+    border-top-color: var(--accent);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
-
-  /* Error card */
-  .error-card {
-    background: var(--red-bg);
-    border: 1px solid var(--red-bd);
-    color: var(--red-ink);
-    border-radius: 10px;
-    padding: 16px 18px;
-    margin-top: 12px;
-  }
-  .error-card .status { font-weight: 700; margin-bottom: 4px; }
-
-  /* Hero (attention index) */
-  .hero {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-top: 3px solid var(--blue-600);
-    border-radius: 10px;
-    padding: 20px 24px;
-    margin-top: 16px;
-  }
-  .hero .device-name { font-size: 1.1rem; font-weight: 600; color: var(--ink); }
-  .hero .value-row { display: flex; align-items: baseline; gap: 16px; margin-top: 8px; flex-wrap: wrap; }
-  .hero .value { font-size: 2.4rem; font-weight: 700; color: var(--blue-900); font-variant-numeric: tabular-nums; }
-  .hero .value-label { font-size: 0.85rem; color: var(--ink-3); }
-  .hero .meta { margin-top: 4px; font-size: 0.9rem; color: var(--ink-2); }
-  .hero .formula { margin-top: 10px; font-size: 0.8rem; color: var(--ink-3); }
-  .hero .caveat { margin-top: 10px; font-size: 0.82rem; color: var(--amber-ink); background: var(--amber-bg); border: 1px solid var(--amber-bd); border-radius: 6px; padding: 6px 10px; display: inline-block; }
-
-  /* KPI-like summary row */
-  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-top: 14px; }
-  .kpi {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-top: 3px solid var(--blue-600);
-    border-radius: 10px;
-    padding: 14px 16px;
-  }
-  .kpi .value { font-size: 1.5rem; font-weight: 700; color: var(--blue-900); font-variant-numeric: tabular-nums; }
-  .kpi .label { margin-top: 4px; font-size: 0.82rem; color: var(--ink-2); }
-
-  /* Signal cards grid: 3 columns desktop, 2 tablet, 1 mobile. */
-  .signals-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 14px;
-  }
-
-  /* Tablet */
-  @media (max-width: 768px) {
-    .container { padding: 1rem; }
-    header { padding: 1.25rem 1.25rem; }
-    header h1 { font-size: 1.2rem; }
-    .hero .value { font-size: 2rem; }
-    .signals-grid { grid-template-columns: repeat(2, 1fr); }
-  }
-
-  /* Mobile */
-  @media (max-width: 480px) {
-    .container { padding: 0.75rem; }
-    header { padding: 1rem; margin-bottom: 1rem; }
-    .signals-grid { grid-template-columns: 1fr; }
-    .kpis { grid-template-columns: repeat(2, 1fr); }
-    #device-input { flex-basis: 100%; }
-    #search-btn { width: 100%; }
-    .hero { padding: 1rem; }
-    .hero .value { font-size: 1.75rem; }
-  }
-
-  .signal-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 14px 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .signal-card .top-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
-  .signal-card .sig-name { font-weight: 600; font-size: 0.95rem; color: var(--ink); }
-  .signal-card .sig-value { font-size: 1.3rem; font-weight: 700; color: var(--blue-900); font-variant-numeric: tabular-nums; }
-  .signal-card .chip-row { display: flex; gap: 6px; flex-wrap: wrap; }
-
-  .chip {
-    display: inline-block;
-    font-size: 0.78rem;
-    font-weight: 600;
-    border-radius: 999px;
-    padding: 2px 11px;
-    border: 1px solid;
-  }
-  .chip.label-low    { background: #dcfce7; color: #15803d; border-color: #bbf7d0; }
-  .chip.label-medium  { background: var(--amber-bg); color: var(--amber-ink); border-color: var(--amber-bd); }
-  .chip.label-high    { background: var(--red-bg); color: var(--red-ink); border-color: var(--red-bd); }
-  .chip.label-unknown { background: var(--gray-bg); color: var(--gray-ink); border-color: var(--gray-bd); }
-
-  .chip.conf-badge {
-    background: var(--blue-50);
-    color: var(--blue-700);
-    border-color: var(--blue-100);
-  }
-
-  .reasoning {
-    font-size: 0.85rem;
-    color: var(--ink-2);
-    line-height: 1.4;
-  }
-  .reasoning.collapsed {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-  .toggle-link {
-    align-self: flex-start;
-    background: none;
-    border: none;
-    color: var(--blue-600);
-    font-size: 0.8rem;
-    font-weight: 600;
-    cursor: pointer;
-    padding: 0;
-  }
-  .toggle-link:hover { text-decoration: underline; }
-
-  /* Data quality */
-  .dq-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 16px 18px;
-    margin-top: 14px;
-  }
-  .dq-card ul { list-style: none; }
-  .dq-card li {
-    font-size: 0.86rem;
-    color: var(--ink-2);
-    padding: 6px 0;
-    border-bottom: 1px solid var(--border);
-  }
-  .dq-card li:last-child { border-bottom: none; }
-  .dq-warning {
-    margin-top: 8px;
-    font-size: 0.85rem;
-    color: var(--amber-ink);
-    background: var(--amber-bg);
-    border: 1px solid var(--amber-bd);
+  .skeleton { position: relative; overflow: hidden; }
+  .sk-line {
+    height: 12px;
     border-radius: 6px;
-    padding: 6px 10px;
-    display: inline-block;
+    background: var(--glass-strong);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  .sk-circle {
+    width: 150px; height: 150px;
+    border-radius: 50%;
+    background: var(--glass-strong);
+    animation: pulse 1.4s ease-in-out infinite;
+    margin: 0 auto;
+  }
+  @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+
+  /* ---- Entry animation: stagger fade-in-up ---- */
+  .fade-in {
+    opacity: 0;
+    animation: fadeInUp 420ms ease-out forwards;
+  }
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
 
   .api-disclaimer {
-    margin-top: 14px;
-    font-size: 0.8rem;
+    margin-top: 16px;
+    font-size: 0.76rem;
     color: var(--ink-3);
     font-style: italic;
+    line-height: 1.5;
   }
 
+  /* ---- About / footer ---- */
+  .about {
+    margin-top: 2rem;
+    padding: 1.3rem 1.4rem;
+  }
+  .about h2 { font-size: 0.95rem; margin-bottom: 12px; }
+  .about-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+  }
+  .about-grid h3 { font-size: 0.8rem; margin-bottom: 6px; color: var(--ink); }
+  .about-grid p { font-size: 0.78rem; color: var(--ink-3); line-height: 1.55; }
   footer {
-    margin-top: 32px;
+    margin-top: 1rem;
     text-align: center;
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     color: var(--ink-3);
-    padding-bottom: 12px;
+    padding: 0.9rem 1rem;
   }
 
   .hidden { display: none !important; }
+
+  /* ---- Reduced motion: all animation off ---- */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation: none !important;
+      transition: none !important;
+    }
+    .fade-in { opacity: 1; }
+  }
+
+  /* ---- Responsive ---- */
+  @media (max-width: 1024px) {
+    .bento-top {
+      grid-template-columns: 1fr 1fr;
+      grid-template-areas:
+        "hero hero"
+        "hl1  hl2"
+        "hl3  dq";
+    }
+    .about-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 768px) {
+    .container { padding: 1rem; }
+    .signals-grid { grid-template-columns: repeat(2, 1fr); }
+    .signal-card.span2 { grid-column: span 2; }
+  }
+  @media (max-width: 480px) {
+    .container { padding: 0.75rem; }
+    .bento-top {
+      grid-template-columns: 1fr;
+      grid-template-areas: "hero" "hl1" "hl2" "hl3" "dq";
+    }
+    .signals-grid { grid-template-columns: 1fr; }
+    .signal-card.span2 { grid-column: span 1; }
+    #device-input { flex-basis: 100%; }
+    #search-btn { width: 100%; }
+  }
 </style>
 </head>
 <body>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
 <div class="container">
 
-<header>
-  <div class="title-row">
-    <h1>medical-device-intelligence</h1>
-    <span class="badge">v0.1.0</span>
+<header class="glass">
+  <div>
+    <h1 style="display:inline">medical-device-intelligence</h1><span class="badge">v0.1.0</span>
   </div>
-  <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Toggle dark mode">🌙</button>
+  <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Toggle dark mode">☀️</button>
 </header>
 
 <main>
+  <section class="glass intro">
+    <p>Search any medical device — <strong>pacemaker</strong>, <strong>stent</strong>, <strong>insulin pump</strong> — and see
+    what public records say about it: FDA adverse events, recalls, clinical trials, and research publications.
+    Every number is explained, sourced, and honest about its limits — this is <strong>attention analysis, never a risk score</strong>.</p>
+    <div class="example-row">
+      <span class="try">Try:</span>
+      <button type="button" class="chip-btn" data-example="pacemaker">pacemaker</button>
+      <button type="button" class="chip-btn" data-example="stent">stent</button>
+      <button type="button" class="chip-btn" data-example="insulin pump">insulin pump</button>
+    </div>
+  </section>
+
   <section class="search">
-    <h2>Search a Device</h2>
-    <div class="card">
+    <div class="glass search-panel">
       <input type="text" id="device-input" placeholder="pacemaker" autocomplete="off">
       <button type="button" id="search-btn">Search</button>
       <div class="inline-msg hidden" id="empty-msg">Please enter a device name to search.</div>
@@ -385,7 +639,31 @@
   </section>
 </main>
 
-<footer>
+<section class="glass about">
+  <h2>About this tool</h2>
+  <div class="about-grid">
+    <div>
+      <h3>For everyone</h3>
+      <p>This page shows how much public-record <em>attention</em> a device gets — reports filed, recalls issued,
+      studies run. High attention usually tracks how widely a device is used and how well it is documented.
+      It is never a safety verdict, and the absence of records is not evidence of safety.</p>
+    </div>
+    <div>
+      <h3>For researchers</h3>
+      <p>Sources: openFDA (device/event MAUDE, enforcement, UDI), ClinicalTrials.gov v2, PubMed — all keyless
+      public APIs, queried live with server-side totals. Every signal card carries its formula and sources
+      under “Methodology”, and confidence levels are stated per reading.</p>
+    </div>
+    <div>
+      <h3>Limits</h3>
+      <p>MAUDE has a publication lag (the newest weeks look artificially quiet), many reports lack event dates,
+      and device name matching is textual — subsidiaries, brand names, and procedure-like names can blur
+      the picture. Data-quality readings on this page quantify some of these gaps.</p>
+    </div>
+  </div>
+</section>
+
+<footer class="glass">
   Educational use only. NOT medical advice.
 </footer>
 </div>
@@ -394,40 +672,508 @@
 (function () {
   'use strict';
 
+  var SVG_NS = 'http://www.w3.org/2000/svg';
+
   var themeBtn = document.getElementById('theme-toggle');
   var input = document.getElementById('device-input');
   var searchBtn = document.getElementById('search-btn');
   var emptyMsg = document.getElementById('empty-msg');
   var results = document.getElementById('results');
 
-  // ---- Theme toggle ----
+  // ============================================================
+  // SIGNAL_META: two-level explanations for every signal type.
+  // Wording rule: attention / public records — never "safe/dangerous".
+  // ============================================================
+  var SIGNAL_META = {
+    SEVERITY: {
+      friendlyName: 'Report Severity Mix',
+      plainQuestion: 'How serious are the reported events?',
+      laymanExplain: 'Looks at every FDA adverse-event report for this device and how the reports split between deaths, injuries, and malfunctions.',
+      whyItMatters: 'A higher mix means reports more often describe serious outcomes — but reporting practices differ a lot between device types and eras.',
+      methodology: 'Weighted mean over MAUDE event types (Death=1.0, Injury=0.6, Malfunction=0.3), computed from server-side totals.',
+      sourceBadges: ['openFDA MAUDE'],
+      group: 'usage'
+    },
+    VOLUME: {
+      friendlyName: 'Report Volume',
+      plainQuestion: 'How many public records exist?',
+      laymanExplain: 'Counts all FDA adverse-event reports and recalls for this device, compared to the most-reported device types.',
+      whyItMatters: 'High volume usually means a widely used device — not necessarily a dangerous one.',
+      methodology: 'device volume (MAUDE events + recalls) / p95 volume of the 100 most-reported device types in MAUDE.',
+      sourceBadges: ['openFDA MAUDE', 'openFDA Recalls'],
+      group: 'usage'
+    },
+    VOLUME_SHIFT: {
+      friendlyName: 'Recent Volume Shift',
+      plainQuestion: 'Are reports rising right now?',
+      laymanExplain: 'Compares the number of reports in the last 90 days with the average of the four previous 90-day periods.',
+      whyItMatters: 'A sustained rise can mean growing attention — or simply a reporting backlog being processed.',
+      methodology: 'recent 90-day count vs mean of 4 prior periods; +300% saturates at 1.0. Caveat: FDA publication lag makes the newest weeks look artificially low.',
+      sourceBadges: ['openFDA MAUDE'],
+      group: 'usage'
+    },
+    RECALL_SEVERITY: {
+      friendlyName: 'Recall Class Mix',
+      plainQuestion: 'How serious were its recalls?',
+      laymanExplain: 'Weighs the device’s FDA recalls by class: Class I (the most serious category) counts most, Class III least.',
+      whyItMatters: 'Class I means FDA judged a reasonable probability of serious health consequences for that recall — the mix shows how the device’s recall history skews.',
+      methodology: 'Weighted mean of recall classifications (I=1.0, II=0.5, III=0.2) over openFDA enforcement records.',
+      sourceBadges: ['openFDA Recalls'],
+      group: 'regulation'
+    },
+    RECALL_RECENCY: {
+      friendlyName: 'Recall Recency',
+      plainQuestion: 'How recent was the last recall?',
+      laymanExplain: 'Measures how recently the newest recall was initiated: a recall today scores 1.0, fading to 0 at five years.',
+      whyItMatters: 'Recent enforcement means regulators acted lately. It is a recency reading, not a harm reading.',
+      methodology: 'Linear five-year fade from the newest recall_initiation_date in openFDA enforcement.',
+      sourceBadges: ['openFDA Recalls'],
+      group: 'regulation'
+    },
+    LIFECYCLE_PHASE: {
+      friendlyName: 'Lifecycle Phase',
+      plainQuestion: 'Where is it in its market life?',
+      laymanExplain: 'Classifies the device’s reporting history as emerging, growing, mature, or declining, based on two-year report windows.',
+      whyItMatters: 'A mature, decades-old device accumulates records simply by being everywhere for a long time.',
+      methodology: 'Five 2-year MAUDE windows; value = trajectory instability |newest − previous| / previous.',
+      sourceBadges: ['openFDA MAUDE'],
+      group: 'regulation'
+    },
+    CORROBORATION: {
+      friendlyName: 'Source Corroboration',
+      plainQuestion: 'How many independent feeds document it?',
+      laymanExplain: 'Checks whether adverse events, recalls, clinical trials, and research publications ALL hold records about this device.',
+      whyItMatters: 'Documentation breadth shows how well-covered the device is across independent public feeds — it measures paperwork, not hazard.',
+      methodology: 'feeds-with-records / 4 across MAUDE, enforcement, ClinicalTrials.gov, and PubMed.',
+      sourceBadges: ['openFDA MAUDE', 'openFDA Recalls', 'ClinicalTrials.gov', 'PubMed'],
+      group: 'research'
+    },
+    EVIDENCE_GAP: {
+      friendlyName: 'Evidence Gap',
+      plainQuestion: 'Is research keeping up with reports?',
+      laymanExplain: 'Compares the amount of scientific evidence (trials plus publications) with the volume of adverse-event reports.',
+      whyItMatters: 'A large gap means many reports exist but little published research is available to interpret them.',
+      methodology: 'evidence records per 1000 MAUDE events; 50+/1000 reads as no gap (value 0).',
+      sourceBadges: ['ClinicalTrials.gov', 'PubMed', 'openFDA MAUDE'],
+      group: 'research'
+    },
+    PEER_SEVERITY_DELTA: {
+      friendlyName: 'Severity vs. Peers',
+      plainQuestion: 'Is its severity mix above the global average?',
+      laymanExplain: 'Compares this device’s severity mix with the average across ALL device reports in the FDA database.',
+      whyItMatters: 'Only an above-global mix raises this reading; matching the global average reads Low.',
+      methodology: 'device weighted severity − global MAUDE event-type mix; +0.30 above global saturates at 1.0.',
+      sourceBadges: ['openFDA MAUDE'],
+      group: 'research'
+    },
+    INDEPENDENT_REPORTING: {
+      friendlyName: 'Independent Reporting',
+      plainQuestion: 'Who filed the reports?',
+      laymanExplain: 'The share of reports filed by health professionals and consumers rather than by the manufacturer itself.',
+      whyItMatters: 'More independent reporting means the public record depends less on a single interested party.',
+      methodology: 'MAUDE source_type buckets (company / independent / other). Multi-valued field: bucket counts can exceed event totals.',
+      sourceBadges: ['openFDA MAUDE'],
+      group: 'dataquality'
+    },
+    MISSING_EVENT_DATES: {
+      friendlyName: 'Missing Event Dates',
+      plainQuestion: 'How complete is the data?',
+      laymanExplain: 'The share of reports that have no event date recorded at all.',
+      whyItMatters: 'Missing dates weaken every time-based reading on this page — trends, shifts, and lifecycle phases.',
+      methodology: '_missing_:date_of_event totals over MAUDE device/event records.',
+      sourceBadges: ['openFDA MAUDE'],
+      group: 'dataquality'
+    }
+  };
+
+  var FALLBACK_META = {
+    friendlyName: null, // falls back to the raw signal code
+    plainQuestion: 'What does this reading measure?',
+    laymanExplain: 'An explainable public-record reading produced by one of the intelligence modules.',
+    whyItMatters: 'Every reading measures documentation activity, never risk.',
+    methodology: 'See the raw module reasoning below.',
+    sourceBadges: [],
+    group: 'usage'
+  };
+
+  var GROUPS = [
+    { id: 'usage',       icon: '📊', title: 'Usage & Reports',      desc: 'How much attention does this device get in FDA reports?' },
+    { id: 'regulation',  icon: '⚖️', title: 'Recalls & Regulation', desc: 'What have regulators done about it?' },
+    { id: 'research',    icon: '🔬', title: 'Research & Evidence',  desc: 'What does science say?' },
+    { id: 'dataquality', icon: '🧾', title: 'Data Quality',         desc: 'How trustworthy is the data itself?' }
+  ];
+
+  // Maps the dossier highlight probe names to signal types.
+  var PROBE_TO_TYPE = {
+    'telemetry/severity': 'SEVERITY',
+    'telemetry/volume': 'VOLUME',
+    'anomaly/volume-shift': 'VOLUME_SHIFT',
+    'correlation/recall-severity': 'RECALL_SEVERITY',
+    'correlation/corroboration': 'CORROBORATION',
+    'correlation/evidence-gap': 'EVIDENCE_GAP',
+    'benchmark/severity-delta': 'PEER_SEVERITY_DELTA',
+    'lifecycle/phase': 'LIFECYCLE_PHASE',
+    'lifecycle/recall-recency': 'RECALL_RECENCY',
+    'reporting/independent': 'INDEPENDENT_REPORTING',
+    'reporting/missing-dates': 'MISSING_EVENT_DATES'
+  };
+
+  function metaFor(type) {
+    return SIGNAL_META[type] || FALLBACK_META;
+  }
+
+  // ============================================================
+  // Evidence layer: verify-at-source links + reasoning parsers.
+  // ============================================================
+  var CONF_EXPLAIN = {
+    HIGH: 'HIGH confidence: computed from complete server-side counts.',
+    MEDIUM: 'MEDIUM confidence: computed from partial or lagging data.',
+    LOW: 'LOW confidence: sparse data — read as a lead, not a measurement.'
+  };
+
+  // Builds the clickable raw-query links for one signal type.
+  function verifyLinks(type, device) {
+    var enc = encodeURIComponent(device);
+    var maudeApi = {
+      label: 'openFDA MAUDE — live event-type counts (JSON)',
+      url: 'https://api.fda.gov/device/event.json?search=device.generic_name:%22' + enc + '%22&count=event_type.exact'
+    };
+    var maudeHuman = {
+      label: 'FDA MAUDE search (human-readable)',
+      url: 'https://www.accessdata.fda.gov/scripts/cdrh/cfdocs/cfmaude/search.cfm'
+    };
+    var recallApi = {
+      label: 'openFDA enforcement — live recall-class counts (JSON)',
+      url: 'https://api.fda.gov/device/enforcement.json?search=product_description:%22' + enc + '%22&count=classification.exact'
+    };
+    var trials = {
+      label: 'ClinicalTrials.gov — trials for this term',
+      url: 'https://clinicaltrials.gov/search?term=' + enc
+    };
+    var pubmed = {
+      label: 'PubMed — publications for this term',
+      url: 'https://pubmed.ncbi.nlm.nih.gov/?term=' + enc
+    };
+    switch (type) {
+      case 'RECALL_SEVERITY':
+      case 'RECALL_RECENCY':
+        return [recallApi];
+      case 'CORROBORATION':
+        return [maudeApi, trials, pubmed, recallApi];
+      case 'EVIDENCE_GAP':
+        return [trials, pubmed, maudeApi];
+      case 'SEVERITY':
+      case 'VOLUME':
+      case 'VOLUME_SHIFT':
+      case 'PEER_SEVERITY_DELTA':
+      case 'LIFECYCLE_PHASE':
+      case 'INDEPENDENT_REPORTING':
+      case 'MISSING_EVENT_DATES':
+        return [maudeApi, maudeHuman];
+      default:
+        return [];
+    }
+  }
+
+  function fmtNum(n) {
+    return Number(n).toLocaleString('en-US');
+  }
+
+  function fmtDate8(d8) {
+    // 20260227 -> 2026-02-27
+    return d8.slice(0, 4) + '-' + d8.slice(4, 6) + '-' + d8.slice(6, 8);
+  }
+
+  function elDiv(cls) {
+    var e = document.createElement('div');
+    if (cls) e.className = cls;
+    return e;
+  }
+
+  // Horizontal labeled bars, widths proportional to the max value.
+  function evBars(rows) {
+    var max = 0;
+    rows.forEach(function (r) { if (r.value > max) max = r.value; });
+    var wrap = elDiv('ev');
+    rows.forEach(function (r) {
+      var row = elDiv('ev-row');
+      var lab = document.createElement('span');
+      lab.className = 'ev-label';
+      lab.textContent = r.label;
+      var track = elDiv('ev-track');
+      var fill = elDiv('ev-fill');
+      fill.style.background = r.color;
+      fill.style.width = (max ? (r.value / max) * 100 : 0) + '%';
+      track.appendChild(fill);
+      var num = document.createElement('span');
+      num.className = 'ev-num';
+      num.textContent = fmtNum(r.value) + (r.pct != null ? ' (' + r.pct + '%)' : '');
+      row.appendChild(lab);
+      row.appendChild(track);
+      row.appendChild(num);
+      wrap.appendChild(row);
+    });
+    return wrap;
+  }
+
+  function statChips(items) {
+    var wrap = elDiv('stat-chips');
+    items.forEach(function (it) {
+      var chip = elDiv('stat-chip');
+      var n = elDiv('n');
+      n.textContent = fmtNum(it.value);
+      var l = elDiv('l');
+      l.textContent = it.icon + ' ' + it.label;
+      chip.appendChild(n);
+      chip.appendChild(l);
+      wrap.appendChild(chip);
+    });
+    return wrap;
+  }
+
+  // parseReasoning extracts the numbers out of the machine-written reasoning
+  // text and returns a small visual, or null when the text doesn't match
+  // (graceful fallback: the card simply shows no chart, never breaks).
+  function parseReasoning(type, text) {
+    try {
+      var m;
+      switch (type) {
+        case 'SEVERITY':
+          m = /(\d+) MAUDE reports: (\d+) deaths, (\d+) injuries, (\d+) malfunctions/.exec(text);
+          if (!m) return null;
+          var tot = +m[1];
+          return evBars([
+            { label: 'Deaths', value: +m[2], color: 'var(--crit)', pct: Math.round(+m[2] / tot * 100) },
+            { label: 'Injuries', value: +m[3], color: 'var(--high)', pct: Math.round(+m[3] / tot * 100) },
+            { label: 'Malfunctions', value: +m[4], color: 'var(--warn)', pct: Math.round(+m[4] / tot * 100) }
+          ]);
+        case 'VOLUME':
+          m = /(\d+) public records .*vs p95 volume (\d+)/.exec(text);
+          if (!m) return null;
+          return evBars([
+            { label: 'This device', value: +m[1], color: 'var(--accent)' },
+            { label: 'Top-100 p95', value: +m[2], color: 'var(--ink-3)' }
+          ]);
+        case 'VOLUME_SHIFT':
+          m = /([\d.]+) reports in the last 90 days vs ([\d.]+) average/.exec(text);
+          if (!m) return null;
+          var pm = /\(([+-]\d+)%/.exec(text);
+          var arrow = '→';
+          if (pm) {
+            var p = +pm[1];
+            arrow = p > 10 ? '↑' : (p < -10 ? '↓' : '→');
+          }
+          var vsWrap = evBars([
+            { label: 'Recent 90d', value: Math.round(+m[1]), color: 'var(--accent)' },
+            { label: 'Prior avg', value: Math.round(+m[2]), color: 'var(--ink-3)' }
+          ]);
+          if (pm) {
+            var trend = elDiv('spark-note');
+            trend.textContent = 'trend: ' + pm[1] + '% ' + arrow;
+            vsWrap.appendChild(trend);
+          }
+          return vsWrap;
+        case 'RECALL_SEVERITY':
+          m = /(\d+) recalls: (\d+) Class I, (\d+) Class II, (\d+) Class III/.exec(text);
+          if (!m) return null;
+          var tbl = document.createElement('table');
+          tbl.className = 'ev-table';
+          [['Class I — most serious', +m[2], 'var(--crit)'],
+           ['Class II', +m[3], 'var(--high)'],
+           ['Class III — least serious', +m[4], 'var(--warn)']].forEach(function (r) {
+            var tr = document.createElement('tr');
+            var td1 = document.createElement('td');
+            var dot = document.createElement('span');
+            dot.className = 'dot';
+            dot.style.background = r[2];
+            td1.appendChild(dot);
+            td1.appendChild(document.createTextNode(r[0]));
+            var td2 = document.createElement('td');
+            td2.textContent = fmtNum(r[1]);
+            tr.appendChild(td1);
+            tr.appendChild(td2);
+            tbl.appendChild(tr);
+          });
+          return tbl;
+        case 'CORROBORATION':
+          m = /MAUDE events \((\d+)\), device trials \((\d+)\), publications \((\d+)\), recalls \((\d+)\)/.exec(text);
+          if (!m) return null;
+          var chips = elDiv('check-chips');
+          [['MAUDE', +m[1]], ['Trials', +m[2]], ['Publications', +m[3]], ['Recalls', +m[4]]].forEach(function (f) {
+            var c = document.createElement('span');
+            var has = f[1] > 0;
+            c.className = 'check-chip' + (has ? '' : ' miss');
+            c.textContent = f[0] + ' ' + (has ? '✓' : '✗') + ' ' + fmtNum(f[1]);
+            chips.appendChild(c);
+          });
+          return chips;
+        case 'EVIDENCE_GAP':
+          m = /\((\d+) trials \+ (\d+) publications\) against (\d+) MAUDE events/.exec(text);
+          if (!m) return null;
+          return statChips([
+            { icon: '🔬', label: 'Trials', value: +m[1] },
+            { icon: '📚', label: 'Publications', value: +m[2] },
+            { icon: '📋', label: 'MAUDE events', value: +m[3] }
+          ]);
+        case 'PEER_SEVERITY_DELTA':
+          m = /device severity ([\d.]+) is .*global MAUDE mix ([\d.]+)/.exec(text);
+          if (!m) return null;
+          var band = elDiv('scale-band');
+          band.appendChild(elDiv('sb-track'));
+          [[+m[1], 'device', 'var(--accent)', false], [+m[2], 'global', 'var(--ink-3)', true]].forEach(function (mk) {
+            var pos = Math.max(0, Math.min(1, mk[0])) * 100;
+            var marker = elDiv('sb-marker');
+            marker.style.left = pos + '%';
+            marker.style.background = mk[2];
+            band.appendChild(marker);
+            var lab = elDiv('sb-lab');
+            lab.style.left = Math.min(pos, 82) + '%';
+            lab.style.color = mk[2];
+            if (mk[3]) lab.style.top = 'auto', lab.style.bottom = '0';
+            lab.textContent = mk[1] + ' ' + mk[0].toFixed(2);
+            band.appendChild(lab);
+          });
+          return band;
+        case 'LIFECYCLE_PHASE':
+          m = /oldest→newest: ([\d →]+)/.exec(text);
+          if (!m) return null;
+          var vals = m[1].split('→').map(function (s) { return parseInt(s.trim(), 10); }).filter(function (v) { return !isNaN(v); });
+          if (vals.length < 2) return null;
+          var W = 220, H = 34, PAD = 4;
+          var maxV = Math.max.apply(null, vals);
+          var svg = document.createElementNS(SVG_NS, 'svg');
+          svg.setAttribute('class', 'sparkline');
+          svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+          svg.setAttribute('preserveAspectRatio', 'none');
+          var pts = vals.map(function (v, i) {
+            var x = PAD + (i / (vals.length - 1)) * (W - 2 * PAD);
+            var y = H - PAD - (maxV ? (v / maxV) * (H - 2 * PAD) : 0);
+            return x + ',' + y;
+          });
+          var line = document.createElementNS(SVG_NS, 'polyline');
+          line.setAttribute('points', pts.join(' '));
+          svg.appendChild(line);
+          var lastPt = pts[pts.length - 1].split(',');
+          var dotEl = document.createElementNS(SVG_NS, 'circle');
+          dotEl.setAttribute('cx', lastPt[0]);
+          dotEl.setAttribute('cy', lastPt[1]);
+          dotEl.setAttribute('r', '2.5');
+          svg.appendChild(dotEl);
+          var sparkWrap = elDiv('');
+          sparkWrap.appendChild(svg);
+          var note = elDiv('spark-note');
+          var ph = /phase: (\w+)/.exec(text);
+          note.textContent = (ph ? 'phase: ' + ph[1] + ' · ' : '') + '2-year windows: ' + vals.map(fmtNum).join(' → ');
+          sparkWrap.appendChild(note);
+          return sparkWrap;
+        case 'RECALL_RECENCY':
+          m = /newest recall initiated (\d{8}) \((\d+) days ago/.exec(text);
+          if (!m) return null;
+          var days = +m[2];
+          var span = 5 * 365; // the five-year fade window
+          var tl = elDiv('timeline');
+          tl.appendChild(elDiv('tl-track'));
+          var mk2 = elDiv('tl-marker');
+          mk2.style.left = Math.max(0, Math.min(1, 1 - days / span)) * 100 + '%';
+          tl.appendChild(mk2);
+          var lab1 = elDiv('tl-lab');
+          lab1.textContent = '5y ago';
+          tl.appendChild(lab1);
+          var lab2 = elDiv('tl-lab end');
+          lab2.textContent = 'today';
+          tl.appendChild(lab2);
+          var tlWrap = elDiv('');
+          tlWrap.appendChild(tl);
+          var tlNote = elDiv('spark-note');
+          tlNote.textContent = 'newest recall: ' + fmtDate8(m[1]) + ' (' + fmtNum(days) + ' days ago)';
+          tlWrap.appendChild(tlNote);
+          return tlWrap;
+        case 'INDEPENDENT_REPORTING':
+          m = /(\d+) of (\d+) source-typed reports.*vs (\d+) company-filed and (\d+) other/.exec(text);
+          if (!m) return null;
+          var indep = +m[1], total = +m[2], comp = +m[3], oth = +m[4];
+          var segs = [['Independent', indep, 'var(--good)'], ['Company', comp, 'var(--high)'], ['Other', oth, 'var(--ink-3)']];
+          var stacked = elDiv('stacked');
+          var legend = elDiv('legend');
+          segs.forEach(function (sg) {
+            var s = document.createElement('span');
+            s.style.background = sg[2];
+            s.style.width = (total ? sg[1] / total * 100 : 0) + '%';
+            stacked.appendChild(s);
+            var li = document.createElement('span');
+            li.textContent = sg[0] + ' ' + Math.round(sg[1] / total * 100) + '%';
+            li.style.color = sg[2];
+            legend.appendChild(li);
+          });
+          var stWrap = elDiv('');
+          stWrap.appendChild(stacked);
+          stWrap.appendChild(legend);
+          return stWrap;
+        case 'MISSING_EVENT_DATES':
+          m = /(\d+) of (\d+) reports have no date_of_event \((\d+)%\)/.exec(text);
+          if (!m) return null;
+          var row2 = elDiv('mini-donut-row');
+          var mg = elDiv('mini-gauge');
+          mg.appendChild(ringGauge(+m[3] / 100, 56, 6, 'mg-track', 'mg-fill', true));
+          var num2 = elDiv('mg-num');
+          num2.style.fontSize = '0.7rem';
+          num2.textContent = m[3] + '%';
+          mg.appendChild(num2);
+          mg.style.width = '56px';
+          mg.style.height = '56px';
+          var lbl2 = elDiv('mg-label');
+          lbl2.className = 'spark-note';
+          lbl2.textContent = fmtNum(+m[1]) + ' of ' + fmtNum(+m[2]) + ' reports have no event date';
+          row2.appendChild(mg);
+          row2.appendChild(lbl2);
+          return row2;
+        default:
+          return null;
+      }
+    } catch (e) {
+      if (window.console && console.warn) console.warn('parseReasoning failed for ' + type + ':', e);
+      return null;
+    }
+  }
+
+  // ---- Theme toggle (dark default; "light" is the stored opt-in) ----
   function updateThemeBtn() {
-    var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    themeBtn.textContent = isDark ? '☀️' : '🌙';
+    var isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    themeBtn.textContent = isLight ? '🌙' : '☀️';
   }
   updateThemeBtn();
 
   themeBtn.addEventListener('click', function () {
-    var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    if (isDark) {
+    var isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    if (isLight) {
       document.documentElement.removeAttribute('data-theme');
-      try { localStorage.setItem('theme', 'light'); } catch (e) {}
-    } else {
-      document.documentElement.setAttribute('data-theme', 'dark');
       try { localStorage.setItem('theme', 'dark'); } catch (e) {}
+    } else {
+      document.documentElement.setAttribute('data-theme', 'light');
+      try { localStorage.setItem('theme', 'light'); } catch (e) {}
     }
     updateThemeBtn();
   });
 
-  // ---- Search wiring ----
+  // ---- Search wiring (unchanged fetch logic) ----
   searchBtn.addEventListener('click', doSearch);
   input.addEventListener('keydown', function (e) {
     if (e.key === 'Enter') doSearch();
+  });
+  // Example chips fill the search box and run the search.
+  Array.prototype.forEach.call(document.querySelectorAll('.chip-btn'), function (btn) {
+    btn.addEventListener('click', function () {
+      input.value = btn.getAttribute('data-example') || '';
+      doSearch();
+    });
   });
 
   function clearChildren(el) {
     while (el.firstChild) el.removeChild(el.firstChild);
   }
+
+  // The device term of the current search — the verify links need it.
+  var currentDevice = '';
 
   function doSearch() {
     var device = input.value.trim();
@@ -437,8 +1183,8 @@
       return;
     }
     emptyMsg.classList.add('hidden');
+    currentDevice = device;
 
-    var url = window.location.origin;
     var dossierUrl = '/api/dossier?device=' + encodeURIComponent(device);
     var signalsUrl = '/api/signals?device=' + encodeURIComponent(device);
 
@@ -463,22 +1209,63 @@
     searchBtn.disabled = isLoading;
   }
 
+  // ---- Skeleton loading state ----
   function showLoadingState() {
     clearChildren(results);
-    var row = document.createElement('div');
-    row.className = 'loading-row';
+
+    var note = document.createElement('div');
+    note.className = 'skeleton-note';
     var spinner = document.createElement('div');
     spinner.className = 'spinner';
     var text = document.createElement('span');
-    text.textContent = 'Loading… (live queries can take up to a minute)';
-    row.appendChild(spinner);
-    row.appendChild(text);
-    results.appendChild(row);
+    text.textContent = 'Live API queries running… (this can take up to a minute)';
+    note.appendChild(spinner);
+    note.appendChild(text);
+    results.appendChild(note);
+
+    var top = document.createElement('div');
+    top.className = 'bento-top';
+    top.appendChild(skeletonHero());
+    top.appendChild(skeletonCard('area-hl1', 3));
+    top.appendChild(skeletonCard('area-hl2', 3));
+    top.appendChild(skeletonCard('area-hl3', 3));
+    top.appendChild(skeletonCard('area-dq', 2));
+    results.appendChild(top);
+
+    var grid = document.createElement('div');
+    grid.className = 'signals-grid';
+    grid.style.marginTop = '14px';
+    for (var i = 0; i < 6; i++) grid.appendChild(skeletonCard('', 3));
+    results.appendChild(grid);
   }
 
-  // fetchJson resolves to {ok, status, data} rather than rejecting on non-2xx,
-  // so both success and API-level error bodies can be rendered distinctly
-  // from actual network failures.
+  function skeletonHero() {
+    var card = document.createElement('div');
+    card.className = 'glass hero-card skeleton area-hero';
+    var circle = document.createElement('div');
+    circle.className = 'sk-circle';
+    card.appendChild(circle);
+    var line = document.createElement('div');
+    line.className = 'sk-line';
+    line.style.width = '60%';
+    card.appendChild(line);
+    return card;
+  }
+
+  function skeletonCard(area, lines) {
+    var card = document.createElement('div');
+    card.className = 'glass mini-card skeleton' + (area ? ' ' + area : '');
+    for (var i = 0; i < lines; i++) {
+      var line = document.createElement('div');
+      line.className = 'sk-line';
+      line.style.width = (85 - i * 20) + '%';
+      card.appendChild(line);
+    }
+    return card;
+  }
+
+  // fetchJson resolves to {ok, status, data} rather than rejecting on non-2xx.
+  // (Unchanged fetch logic.)
   function fetchJson(url) {
     return fetch(url, { credentials: 'same-origin' }).then(function (resp) {
       return resp.json().catch(function () {
@@ -491,7 +1278,7 @@
 
   function renderNetworkError(err) {
     var card = document.createElement('div');
-    card.className = 'error-card';
+    card.className = 'glass error-card';
     var status = document.createElement('div');
     status.className = 'status';
     status.textContent = 'Network error';
@@ -504,7 +1291,7 @@
 
   function renderApiError(label, resp) {
     var card = document.createElement('div');
-    card.className = 'error-card';
+    card.className = 'glass error-card';
     var status = document.createElement('div');
     status.className = 'status';
     status.textContent = label + ' — HTTP ' + resp.status;
@@ -522,25 +1309,54 @@
     results.appendChild(card);
   }
 
+  // Stagger helper: assign an increasing animation delay to each card.
+  var staggerIndex = 0;
+  function stagger(el) {
+    el.classList.add('fade-in');
+    el.style.animationDelay = (staggerIndex * 40) + 'ms';
+    staggerIndex++;
+    return el;
+  }
+
+  // Normalized accessor over both signal shapes:
+  // dossier: {signal_type, value, label, reasoning, confidence_level}
+  // signals endpoint rows: {signal, value, label, reasoning, confidence}
+  function normSignal(rec) {
+    rec = rec || {};
+    return {
+      type: rec.signal_type || rec.signal || rec.Signal || 'UNKNOWN',
+      value: rec.value != null ? rec.value : rec.Value,
+      label: rec.label || rec.Label || 'Unknown',
+      confidence: rec.confidence_level || rec.confidence || rec.Confidence || 'UNKNOWN',
+      reasoning: rec.reasoning || rec.Reasoning || ''
+    };
+  }
+
   function renderResults(dossierResp, signalsResp) {
+    staggerIndex = 0;
     var anyOk = false;
+
+    var dossierSignals = (dossierResp.ok && (dossierResp.data.signals || [])) || [];
 
     if (!dossierResp.ok) {
       renderApiError('Dossier lookup failed', dossierResp);
     } else {
       anyOk = true;
-      renderHero(dossierResp.data);
-      renderDataQuality(dossierResp.data);
+      renderBentoTop(dossierResp.data, signalsResp.ok ? signalsResp.data : null);
     }
 
-    if (!signalsResp.ok) {
+    if (!signalsResp.ok && !dossierResp.ok) {
       renderApiError('Signals lookup failed', signalsResp);
     } else {
       anyOk = true;
-      renderSignals(signalsResp.data);
+      // Prefer the dossier's signal structs (full reasoning); fall back to the
+      // signals endpoint rows (reasoning clipped server-side).
+      var source = dossierSignals.length ? dossierSignals
+        : ((signalsResp.ok && (signalsResp.data.records || [])) || []);
+      renderSignalGroups(source);
+      if (!signalsResp.ok) renderApiError('Signals lookup failed', signalsResp);
     }
 
-    // Render whichever disclaimer we have, preferring the dossier's.
     var disclaimer = null;
     if (dossierResp.ok && (dossierResp.data.disclaimer || dossierResp.data.Disclaimer)) {
       disclaimer = dossierResp.data.disclaimer || dossierResp.data.Disclaimer;
@@ -555,87 +1371,196 @@
     }
   }
 
-  // ---- Dossier: hero + data quality ----
-  function renderHero(d) {
+  // ---- Gauge helpers ----
+  function gaugeColor(v) {
+    if (v == null) return 'var(--ink-3)';
+    if (v < 0.3) return 'var(--good)';
+    if (v <= 0.6) return 'var(--warn)';
+    return 'var(--high)';
+  }
+
+  function attentionSentence(v) {
+    if (v == null) return 'No readable attention value for this device term.';
+    if (v < 0.3) return 'This device generates low public-record attention.';
+    if (v <= 0.6) return 'This device generates moderate public-record attention.';
+    return 'This device generates high public-record attention.';
+  }
+
+  // Ring gauge factory used by the hero (big) and data-health minis (small).
+  function ringGauge(value, size, strokeW, cssTrack, cssFill, animate) {
+    var r = (size - strokeW) / 2 - 2;
+    var C = 2 * Math.PI * r;
+    var svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('width', size);
+    svg.setAttribute('height', size);
+    svg.setAttribute('viewBox', '0 0 ' + size + ' ' + size);
+
+    var track = document.createElementNS(SVG_NS, 'circle');
+    track.setAttribute('class', cssTrack);
+    track.setAttribute('cx', size / 2);
+    track.setAttribute('cy', size / 2);
+    track.setAttribute('r', r);
+    svg.appendChild(track);
+
+    var fill = document.createElementNS(SVG_NS, 'circle');
+    fill.setAttribute('class', cssFill);
+    fill.setAttribute('cx', size / 2);
+    fill.setAttribute('cy', size / 2);
+    fill.setAttribute('r', r);
+    fill.style.stroke = gaugeColor(value);
+    fill.setAttribute('stroke-dasharray', String(C));
+    fill.setAttribute('stroke-dashoffset', String(C));
+    svg.appendChild(fill);
+
+    if (typeof value === 'number' && animate) {
+      var target = C * (1 - Math.max(0, Math.min(1, value)));
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          fill.setAttribute('stroke-dashoffset', String(target));
+        });
+      });
+    }
+    return svg;
+  }
+
+  function buildGauge(value) {
+    var wrap = document.createElement('div');
+    wrap.className = 'gauge-wrap';
+    wrap.appendChild(ringGauge(value, 170, 12, 'gauge-track', 'gauge-fill', true));
+
+    var center = document.createElement('div');
+    center.className = 'gauge-center';
+    var num = document.createElement('div');
+    num.className = 'num';
+    num.style.color = gaugeColor(value);
+    num.textContent = (typeof value === 'number') ? value.toFixed(2) : '—';
+    var lbl = document.createElement('div');
+    lbl.className = 'lbl';
+    lbl.textContent = 'Attention Index';
+    center.appendChild(num);
+    center.appendChild(lbl);
+    wrap.appendChild(center);
+    return wrap;
+  }
+
+  // Parses "lifecycle/recall-recency = 0.93 (Critical): reasoning…" highlights.
+  function parseHighlight(h) {
+    var m = /^(\S+) = ([\d.]+) \((\w+)\): ([\s\S]*)$/.exec(h || '');
+    if (!m) return { probe: '', value: null, label: '', detail: h || '' };
+    return { probe: m[1], value: parseFloat(m[2]), label: m[3], detail: m[4] };
+  }
+
+  // ---- Bento top: hero gauge + top-3 highlights + data health ----
+  function renderBentoTop(d, s) {
     d = d || {};
     var device = d.device || d.Device || '';
     var attentionIndex = d.attention_index != null ? d.attention_index : d.AttentionIndex;
     var formula = d.index_formula || d.IndexFormula || '';
     var signalsMeasured = d.signals_measured != null ? d.signals_measured : d.SignalsMeasured;
+    var highlights = d.highlights || d.Highlights || [];
+    var dSignals = d.signals || [];
 
+    var top = document.createElement('div');
+    top.className = 'bento-top';
+
+    // Hero card with the animated gauge and a plain-English reading.
     var hero = document.createElement('div');
-    hero.className = 'hero';
-
+    hero.className = 'glass hero-card area-hero';
     var nameEl = document.createElement('div');
     nameEl.className = 'device-name';
     nameEl.textContent = device || '(unknown device)';
     hero.appendChild(nameEl);
+    hero.appendChild(buildGauge((typeof attentionIndex === 'number') ? attentionIndex : null));
 
-    var valueRow = document.createElement('div');
-    valueRow.className = 'value-row';
-    var valueEl = document.createElement('div');
-    valueEl.className = 'value';
-    valueEl.textContent = (typeof attentionIndex === 'number') ? attentionIndex.toFixed(2) : '—';
-    var valueLabel = document.createElement('div');
-    valueLabel.className = 'value-label';
-    valueLabel.textContent = 'Attention Index';
-    valueRow.appendChild(valueEl);
-    valueRow.appendChild(valueLabel);
-    hero.appendChild(valueRow);
+    var plain = document.createElement('div');
+    plain.className = 'plain-read';
+    plain.textContent = attentionSentence((typeof attentionIndex === 'number') ? attentionIndex : null);
+    hero.appendChild(plain);
 
     var meta = document.createElement('div');
     meta.className = 'meta';
-    meta.textContent = 'Signals measured: ' + (signalsMeasured != null ? signalsMeasured : '—');
+    var totalSignals = null;
+    if (s && s.summary && (s.summary.signals != null || s.summary.Signals != null)) {
+      totalSignals = s.summary.signals != null ? s.summary.signals : s.summary.Signals;
+    }
+    meta.textContent = 'Signals measured: ' + (signalsMeasured != null ? signalsMeasured : '—') +
+      (totalSignals != null ? ' of ' + totalSignals : '');
     hero.appendChild(meta);
 
     if (formula) {
       var formulaEl = document.createElement('div');
       formulaEl.className = 'formula';
-      formulaEl.textContent = 'Formula: ' + formula;
+      formulaEl.textContent = formula;
       hero.appendChild(formulaEl);
     }
-
     var caveat = document.createElement('div');
     caveat.className = 'caveat';
     caveat.textContent = 'Measures public-record attention, NOT risk.';
     hero.appendChild(caveat);
+    top.appendChild(stagger(hero));
 
-    results.appendChild(hero);
-
-    var highlights = d.highlights || d.Highlights;
-    if (highlights && highlights.length) {
-      var hlCard = document.createElement('div');
-      hlCard.className = 'dq-card';
-      var hlTitle = document.createElement('h2');
-      hlTitle.textContent = 'Highlights';
-      hlTitle.style.margin = '0 0 8px';
-      var hlList = document.createElement('ul');
-      highlights.forEach(function (h) {
-        var li = document.createElement('li');
-        li.textContent = h;
-        hlList.appendChild(li);
-      });
-      hlCard.appendChild(hlTitle);
-      hlCard.appendChild(hlList);
-      results.appendChild(hlCard);
+    // Top-3 highlight cards: icon + one layman sentence + expandable detail.
+    for (var i = 0; i < 3; i++) {
+      top.appendChild(stagger(highlightCard(highlights[i], i)));
     }
+
+    // Data health card: mini ring gauges for the two data-quality signals.
+    top.appendChild(stagger(dataHealthCard(d, dSignals)));
+
+    results.appendChild(top);
   }
 
-  function renderDataQuality(d) {
-    d = d || {};
-    var dataQuality = d.data_quality || d.DataQuality || [];
-    var notes = d.notes || d.Notes || [];
-
-    if (!dataQuality.length && !notes.length) return;
-
+  function highlightCard(h, i) {
     var card = document.createElement('div');
-    card.className = 'dq-card';
+    card.className = 'glass mini-card area-hl' + (i + 1);
 
-    var title = document.createElement('h2');
-    title.textContent = 'Data Quality';
-    title.style.margin = '0 0 8px';
+    var t = document.createElement('div');
+    t.className = 'mini-title';
+    t.textContent = '⭐ Highlight #' + (i + 1);
+    card.appendChild(t);
+
+    if (!h) {
+      var none = document.createElement('div');
+      none.className = 'mini-body';
+      none.textContent = '—';
+      card.appendChild(none);
+      return card;
+    }
+
+    var p = parseHighlight(h);
+    var type = PROBE_TO_TYPE[p.probe];
+    var m = metaFor(type);
+
+    var lead = document.createElement('div');
+    lead.className = 'mini-lead';
+    var name = (m.friendlyName || type || p.probe);
+    lead.textContent = name + (p.value != null ? ' — ' + p.value.toFixed(2) : '') +
+      (p.label ? ' (' + p.label + ')' : '');
+    card.appendChild(lead);
+
+    var body = document.createElement('div');
+    body.className = 'mini-body';
+    body.textContent = m.whyItMatters;
+    card.appendChild(body);
+
+    card.appendChild(disclosure('Detail ▾', function (holder) {
+      var raw = document.createElement('p');
+      raw.className = 'raw';
+      raw.textContent = p.detail;
+      holder.appendChild(raw);
+    }));
+    return card;
+  }
+
+  function dataHealthCard(d, dSignals) {
+    var card = document.createElement('div');
+    card.className = 'glass mini-card area-dq';
+    var title = document.createElement('div');
+    title.className = 'mini-title';
+    title.textContent = '🧾 Data Health';
     card.appendChild(title);
 
+    var notes = d.notes || d.Notes || [];
     if (notes.length) {
       var warn = document.createElement('div');
       warn.className = 'dq-warning';
@@ -643,59 +1568,98 @@
       card.appendChild(warn);
     }
 
-    if (dataQuality.length) {
-      var list = document.createElement('ul');
-      dataQuality.forEach(function (line) {
-        var li = document.createElement('li');
-        li.textContent = line;
-        list.appendChild(li);
-      });
-      card.appendChild(list);
-    }
+    // Mini gauges from the data-quality signal values.
+    var gauges = document.createElement('div');
+    gauges.className = 'dq-gauges';
+    var found = false;
+    [['INDEPENDENT_REPORTING', 'independent reports'], ['MISSING_EVENT_DATES', 'reports missing dates']].forEach(function (pair) {
+      var sig = null;
+      for (var i = 0; i < dSignals.length; i++) {
+        if (normSignal(dSignals[i]).type === pair[0]) { sig = normSignal(dSignals[i]); break; }
+      }
+      if (!sig || typeof sig.value !== 'number') return;
+      found = true;
+      var item = document.createElement('div');
+      item.className = 'dq-gauge-item';
+      var mg = document.createElement('div');
+      mg.className = 'mini-gauge';
+      mg.appendChild(ringGauge(sig.value, 74, 7, 'mg-track', 'mg-fill', true));
+      var num = document.createElement('div');
+      num.className = 'mg-num';
+      num.textContent = Math.round(sig.value * 100) + '%';
+      mg.appendChild(num);
+      var lbl = document.createElement('div');
+      lbl.className = 'mg-label';
+      lbl.textContent = pair[1];
+      item.appendChild(mg);
+      item.appendChild(lbl);
+      gauges.appendChild(item);
+    });
+    if (found) card.appendChild(gauges);
 
-    results.appendChild(card);
+    var dataQuality = d.data_quality || d.DataQuality || [];
+    if (dataQuality.length) {
+      card.appendChild(disclosure('Detail ▾', function (holder) {
+        var list = document.createElement('ul');
+        list.className = 'dq-list';
+        dataQuality.forEach(function (line) {
+          var li = document.createElement('li');
+          li.textContent = line;
+          list.appendChild(li);
+        });
+        holder.appendChild(list);
+      }));
+    } else if (!found && !notes.length) {
+      var none = document.createElement('div');
+      none.className = 'mini-body';
+      none.textContent = '—';
+      card.appendChild(none);
+    }
+    return card;
   }
 
-  // ---- Signals grid ----
+  // disclosure builds a collapsible block: a toggle button + a lazily-shown body.
+  function disclosure(label, fillBody) {
+    var wrap = document.createElement('div');
+    wrap.className = 'disclosure';
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'disclosure-btn';
+    btn.textContent = label;
+    btn.setAttribute('aria-expanded', 'false');
+    var body = document.createElement('div');
+    body.className = 'disclosure-body hidden';
+    fillBody(body);
+    btn.addEventListener('click', function () {
+      var hidden = body.classList.toggle('hidden');
+      btn.setAttribute('aria-expanded', hidden ? 'false' : 'true');
+      btn.textContent = label.replace(hidden ? '▴' : '▾', hidden ? '▾' : '▴');
+    });
+    wrap.appendChild(btn);
+    wrap.appendChild(body);
+    return wrap;
+  }
+
+  // ---- Grouped signal sections ----
   function labelClass(label) {
     var l = (label || '').toLowerCase();
     if (l === 'low') return 'label-low';
     if (l === 'medium') return 'label-medium';
-    if (l === 'high' || l === 'critical') return 'label-high';
+    if (l === 'high') return 'label-high';
+    if (l === 'critical') return 'label-critical';
     return 'label-unknown';
   }
 
-  function renderSignals(s) {
-    s = s || {};
-    var records = s.records || s.Records || [];
-    var count = s.count != null ? s.count : s.Count;
-    var summary = s.summary || s.Summary || {};
+  function barColor(label) {
+    var l = (label || '').toLowerCase();
+    if (l === 'critical') return 'var(--crit)';
+    if (l === 'high') return 'var(--high)';
+    if (l === 'medium') return 'var(--warn)';
+    if (l === 'low') return 'var(--good)';
+    return 'var(--ink-3)';
+  }
 
-    var heading = document.createElement('h2');
-    heading.textContent = 'Signals' + (count != null ? ' (' + count + ')' : '');
-    results.appendChild(heading);
-
-    if (summary && (summary.readable != null || summary.Readable != null || summary.note || summary.Note)) {
-      var kpis = document.createElement('div');
-      kpis.className = 'kpis';
-
-      var readable = summary.readable != null ? summary.readable : summary.Readable;
-      var sigCount = summary.signals != null ? summary.signals : summary.Signals;
-
-      if (sigCount != null) kpis.appendChild(kpiBlock(sigCount, 'Signals'));
-      if (readable != null) kpis.appendChild(kpiBlock(readable, 'Readable'));
-
-      results.appendChild(kpis);
-
-      var noteText = summary.note || summary.Note;
-      if (noteText) {
-        var noteEl = document.createElement('div');
-        noteEl.className = 'inline-msg';
-        noteEl.textContent = noteText;
-        results.appendChild(noteEl);
-      }
-    }
-
+  function renderSignalGroups(records) {
     if (!records.length) {
       var empty = document.createElement('div');
       empty.className = 'inline-msg';
@@ -704,82 +1668,172 @@
       return;
     }
 
-    var grid = document.createElement('div');
-    grid.className = 'signals-grid';
-    grid.style.marginTop = '14px';
-
+    // Bucket the signals into the four groups (unknown types fold into usage).
+    var buckets = {};
     records.forEach(function (rec) {
-      grid.appendChild(signalCard(rec));
+      var n = normSignal(rec);
+      var g = metaFor(n.type).group;
+      (buckets[g] = buckets[g] || []).push(n);
     });
 
-    results.appendChild(grid);
+    GROUPS.forEach(function (g) {
+      var list = buckets[g.id] || [];
+      if (!list.length) return;
+
+      var heading = document.createElement('h2');
+      heading.className = 'section';
+      heading.textContent = g.icon + ' ' + g.title + ' (' + list.length + ')';
+      results.appendChild(heading);
+
+      var desc = document.createElement('div');
+      desc.className = 'group-desc';
+      desc.textContent = g.desc;
+      results.appendChild(desc);
+
+      var grid = document.createElement('div');
+      grid.className = 'signals-grid';
+      list.forEach(function (n) {
+        grid.appendChild(stagger(signalCard(n)));
+      });
+      results.appendChild(grid);
+    });
   }
 
-  function kpiBlock(value, label) {
-    var kpi = document.createElement('div');
-    kpi.className = 'kpi';
-    var v = document.createElement('div');
-    v.className = 'value';
-    v.textContent = String(value);
-    var l = document.createElement('div');
-    l.className = 'label';
-    l.textContent = label;
-    kpi.appendChild(v);
-    kpi.appendChild(l);
-    return kpi;
-  }
-
-  function signalCard(rec) {
-    rec = rec || {};
-    var signal = rec.signal || rec.Signal || 'UNKNOWN';
-    var value = rec.value != null ? rec.value : rec.Value;
-    var label = rec.label || rec.Label || 'Unknown';
-    var confidence = rec.confidence || rec.Confidence || 'UNKNOWN';
-    var reasoning = rec.reasoning || rec.Reasoning || '';
+  function signalCard(n) {
+    var m = metaFor(n.type);
+    var l = (n.label || '').toLowerCase();
 
     var card = document.createElement('div');
-    card.className = 'signal-card';
+    card.className = 'glass signal-card';
+    // Visual hierarchy: Critical/High readings take a double-width bento cell.
+    if (l === 'critical' || l === 'high') card.classList.add('span2');
+    if (l === 'unknown') card.classList.add('sig-unknown');
+
+    // Trust header: source · live query · confidence, with an explaining tooltip.
+    var trust = document.createElement('div');
+    trust.className = 'trust-meta';
+    trust.textContent = 'Source: ' + (m.sourceBadges.length ? m.sourceBadges.join(' + ') : 'public records') +
+      ' · Live query · Confidence: ' + n.confidence;
+    trust.title = CONF_EXPLAIN[n.confidence] || '';
+    card.appendChild(trust);
 
     var topRow = document.createElement('div');
     topRow.className = 'top-row';
     var nameEl = document.createElement('div');
     nameEl.className = 'sig-name';
-    nameEl.textContent = signal;
+    nameEl.textContent = m.friendlyName || n.type;
+    var code = document.createElement('span');
+    code.className = 'sig-code';
+    code.textContent = n.type;
+    nameEl.appendChild(code);
     var valueEl = document.createElement('div');
     valueEl.className = 'sig-value';
-    valueEl.textContent = (typeof value === 'number') ? value.toFixed(2) : '—';
+    valueEl.textContent = (typeof n.value === 'number') ? n.value.toFixed(2) : '—';
     topRow.appendChild(nameEl);
     topRow.appendChild(valueEl);
     card.appendChild(topRow);
 
+    var q = document.createElement('div');
+    q.className = 'plain-q';
+    q.textContent = '“' + m.plainQuestion + '”';
+    card.appendChild(q);
+
+    // Mini progress bar visualizing the 0..1 value, colored by label.
+    var track = document.createElement('div');
+    track.className = 'bar-track';
+    var fill = document.createElement('div');
+    fill.className = 'bar-fill';
+    fill.style.background = barColor(n.label);
+    fill.style.width = '0%';
+    track.appendChild(fill);
+    card.appendChild(track);
+    if (typeof n.value === 'number') {
+      var pct = Math.max(0, Math.min(1, n.value)) * 100;
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () { fill.style.width = pct + '%'; });
+      });
+    }
+
+    // Evidence chart: the reasoning's numbers made visual (below the bar).
+    var chart = parseReasoning(n.type, n.reasoning);
+    if (chart) card.appendChild(chart);
+
     var chipRow = document.createElement('div');
     chipRow.className = 'chip-row';
     var labelChip = document.createElement('span');
-    labelChip.className = 'chip ' + labelClass(label);
-    labelChip.textContent = label;
+    labelChip.className = 'chip ' + labelClass(n.label);
+    labelChip.textContent = n.label;
     var confChip = document.createElement('span');
-    confChip.className = 'chip conf-badge';
-    confChip.textContent = confidence;
+    confChip.className = 'chip';
+    confChip.textContent = n.confidence;
+    confChip.title = CONF_EXPLAIN[n.confidence] || '';
     chipRow.appendChild(labelChip);
     chipRow.appendChild(confChip);
     card.appendChild(chipRow);
 
-    if (reasoning) {
-      var reasoningEl = document.createElement('div');
-      reasoningEl.className = 'reasoning collapsed';
-      reasoningEl.textContent = reasoning;
-      card.appendChild(reasoningEl);
+    // Progressive disclosure #1: layman explanation.
+    card.appendChild(disclosure('What does this mean? ▾', function (holder) {
+      var ex = document.createElement('p');
+      ex.textContent = m.laymanExplain;
+      holder.appendChild(ex);
+      var why = document.createElement('p');
+      why.className = 'why';
+      why.textContent = 'Why it matters: ' + m.whyItMatters;
+      holder.appendChild(why);
+    }));
 
-      var toggle = document.createElement('button');
-      toggle.type = 'button';
-      toggle.className = 'toggle-link';
-      toggle.textContent = 'more';
-      toggle.addEventListener('click', function () {
-        var collapsed = reasoningEl.classList.toggle('collapsed');
-        toggle.textContent = collapsed ? 'more' : 'less';
-      });
-      card.appendChild(toggle);
-    }
+    // Progressive disclosure #2: methodology + sources + raw module reasoning.
+    card.appendChild(disclosure('Methodology ▾', function (holder) {
+      var meth = document.createElement('p');
+      meth.className = 'method';
+      meth.textContent = m.methodology;
+      holder.appendChild(meth);
+      if (m.sourceBadges.length) {
+        var row = document.createElement('div');
+        row.className = 'badge-row';
+        m.sourceBadges.forEach(function (b) {
+          var badge = document.createElement('span');
+          badge.className = 'src-badge';
+          badge.textContent = b;
+          row.appendChild(badge);
+        });
+        holder.appendChild(row);
+      }
+      if (n.reasoning) {
+        var raw = document.createElement('p');
+        raw.className = 'raw';
+        raw.textContent = 'Module reading: ' + n.reasoning;
+        holder.appendChild(raw);
+      }
+      var conf = document.createElement('p');
+      conf.className = 'why';
+      conf.textContent = (CONF_EXPLAIN[n.confidence] || '') +
+        ' (HIGH = complete server-side counts; MEDIUM = partial or lagging data.)';
+      holder.appendChild(conf);
+      // Verify-at-source: live links to the raw government queries.
+      var links = verifyLinks(n.type, currentDevice);
+      if (links.length) {
+        var verify = document.createElement('div');
+        verify.className = 'verify';
+        var vt = document.createElement('div');
+        vt.className = 'v-title';
+        vt.textContent = '🔗 Verify at source';
+        verify.appendChild(vt);
+        links.forEach(function (lk) {
+          var a = document.createElement('a');
+          a.href = lk.url;
+          a.target = '_blank';
+          a.rel = 'noopener';
+          a.textContent = lk.label;
+          verify.appendChild(a);
+        });
+        var vnote = document.createElement('div');
+        vnote.className = 'note';
+        vnote.textContent = 'Opens the live government database — the same source this signal was computed from.';
+        verify.appendChild(vnote);
+        holder.appendChild(verify);
+      }
+    }));
 
     return card;
   }

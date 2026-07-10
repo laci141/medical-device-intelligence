@@ -198,6 +198,29 @@ func TestServeRootServesFrontend(t *testing.T) {
 	}
 }
 
+func TestServeSignalsJSONFullReasoning(t *testing.T) {
+	d := sampleDossier()
+	long := strings.Repeat("x", 200) // well past the 90-char plain-mode clip
+	d.Signals[0].Reasoning = long
+	withDossier(t, d, nil)
+	ts := httptest.NewServer(NewServeHandler())
+	defer ts.Close()
+
+	status, v := getJSON(t, ts.URL+"/api/signals?device=pacemaker")
+	if status != http.StatusOK {
+		t.Fatalf("signals status=%d want 200", status)
+	}
+	recs, _ := v["records"].([]any)
+	if len(recs) == 0 {
+		t.Fatal("signals returned no records")
+	}
+	first, _ := recs[0].(map[string]any)
+	got, _ := first["reasoning"].(string)
+	if got != long {
+		t.Errorf("JSON reasoning clipped: len=%d want %d (must be the full text)", len(got), len(long))
+	}
+}
+
 func TestServeCommandRegistered(t *testing.T) {
 	if _, ok := commands["serve"]; !ok {
 		t.Error("command \"serve\" not registered")

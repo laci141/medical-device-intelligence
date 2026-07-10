@@ -36,12 +36,18 @@ func cmdSignals(ctx context.Context, stdout, stderr io.Writer, args []string) in
 
 	rows := make([]map[string]any, 0, len(d.Signals))
 	for _, s := range d.Signals {
+		// Machine modes get the full reasoning (clients parse it); the plain
+		// terminal table stays clipped for readability.
+		reasoning := s.Reasoning
+		if !f.JSON && !f.Agent {
+			reasoning = clip(reasoning, 90)
+		}
 		rows = append(rows, map[string]any{
 			"signal":     s.SignalType,
 			"value":      s.Value,
 			"label":      s.Label,
 			"confidence": s.ConfidenceLevel,
-			"reasoning":  clip(s.Reasoning, 90),
+			"reasoning":  reasoning,
 		})
 	}
 
