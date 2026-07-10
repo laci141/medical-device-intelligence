@@ -172,6 +172,32 @@ func TestServeSynthesizeErrorIsJSONNotPanic(t *testing.T) {
 	}
 }
 
+func TestServeRootServesFrontend(t *testing.T) {
+	ts := httptest.NewServer(NewServeHandler())
+	defer ts.Close()
+
+	resp, err := http.Get(ts.URL + "/")
+	if err != nil {
+		t.Fatalf("GET /: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("GET / status=%d want 200", resp.StatusCode)
+	}
+	if ct := resp.Header.Get("Content-Type"); !strings.HasPrefix(ct, "text/html") {
+		t.Errorf("GET / Content-Type=%q want text/html", ct)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("GET /: read body: %v", err)
+	}
+	for _, want := range []string{"<!DOCTYPE html>", "medical-device-intelligence", "/api/signals"} {
+		if !strings.Contains(string(body), want) {
+			t.Errorf("frontend HTML missing %q", want)
+		}
+	}
+}
+
 func TestServeCommandRegistered(t *testing.T) {
 	if _, ok := commands["serve"]; !ok {
 		t.Error("command \"serve\" not registered")

@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/laci141/medical-device-intelligence/internal/cliutil"
+	"github.com/laci141/medical-device-intelligence/web"
 )
 
 func init() { register("serve", cmdServe) }
@@ -122,8 +123,16 @@ func NewServeHandler() http.Handler {
 	for path, route := range apiRoutes {
 		mux.HandleFunc(path, routeHandler(route))
 	}
-	// Everything else (including "/" until the frontend lands) is a JSON 404.
+	// GET / serves the embedded frontend; every other unmatched path is a JSON 404.
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" || r.URL.Path == "/index.html" {
+			if !allowGET(w, r) {
+				return
+			}
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			_, _ = w.Write(web.Index)
+			return
+		}
 		writeJSONError(w, http.StatusNotFound, "not found")
 	})
 	return withRecovery(mux)

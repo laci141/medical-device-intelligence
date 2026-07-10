@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>medical-device-intelligence</title>
+<script>
+  // Apply persisted theme before first paint to avoid a flash of the wrong theme.
+  (function () {
+    try {
+      var t = localStorage.getItem('theme');
+      if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    } catch (e) { /* localStorage unavailable */ }
+  })();
+</script>
+<style>
+  :root {
+    --blue-900: #0c3a66;
+    --blue-700: #1565c0;
+    --blue-600: #1976d2;
+    --blue-100: #dbeafe;
+    --blue-50:  #eff6ff;
+    --ink:      #1e293b;
+    --ink-2:    #475569;
+    --ink-3:    #64748b;
+    --surface:  #ffffff;
+    --page:     #f1f5f9;
+    --green:    #15803d;
+    --border:   #e2e8f0;
+    --red-bg:   #fef2f2;
+    --red-bd:   #fecaca;
+    --red-ink:  #b91c1c;
+    --amber-bg: #fffbeb;
+    --amber-bd: #fde68a;
+    --amber-ink:#b45309;
+    --gray-bg:  #f1f5f9;
+    --gray-bd:  #e2e8f0;
+    --gray-ink: #475569;
+  }
+
+  :root[data-theme="dark"] {
+    --blue-900: #7fb8ff;
+    --blue-700: #93c5fd;
+    --blue-600: #60a5fa;
+    --blue-100: #1e3a5f;
+    --blue-50:  #16283f;
+    --ink:      #e2e8f0;
+    --ink-2:    #cbd5e1;
+    --ink-3:    #94a3b8;
+    --surface:  #1e293b;
+    --page:     #0f172a;
+    --green:    #4ade80;
+    --border:   #334155;
+    --red-bg:   #3f1d1d;
+    --red-bd:   #7f1d1d;
+    --red-ink:  #fca5a5;
+    --amber-bg: #3f2d0d;
+    --amber-bd: #78350f;
+    --amber-ink:#fcd34d;
+    --gray-bg:  #1e293b;
+    --gray-bd:  #334155;
+    --gray-ink: #cbd5e1;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { background: var(--page); }
+
+  body {
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: var(--page);
+    color: var(--ink);
+    min-height: 100vh;
+    font-size: 1rem;
+  }
+
+  /* Centered content column: the width cap lives on a wrapper, not on body,
+     so browser zoom keeps the column centered instead of hugging the left. */
+  .container {
+    width: 100%;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 1.5rem;
+  }
+
+  header {
+    background: linear-gradient(135deg, var(--blue-900), var(--blue-600));
+    color: #fff;
+    border-radius: 12px;
+    padding: 1.5rem 1.75rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  :root[data-theme="dark"] header { color: #0f172a; }
+
+  header .title-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  header h1 { font-size: 1.4rem; font-weight: 600; letter-spacing: 0.2px; }
+
+  .badge {
+    display: inline-block;
+    background: rgba(255,255,255,0.18);
+    border: 1px solid rgba(255,255,255,0.35);
+    border-radius: 999px;
+    padding: 3px 12px;
+    font-size: 0.82rem;
+  }
+
+  .theme-toggle {
+    background: rgba(255,255,255,0.18);
+    border: 1px solid rgba(255,255,255,0.35);
+    border-radius: 999px;
+    color: inherit;
+    font-size: 1.1rem;
+    padding: 6px 14px;
+    cursor: pointer;
+    line-height: 1;
+  }
+  .theme-toggle:hover { background: rgba(255,255,255,0.3); }
+
+  h2 {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-3);
+    margin: 24px 0 12px;
+  }
+
+  section.search .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  #device-input {
+    flex: 1 1 220px;
+    min-width: 0;
+    padding: 10px 14px;
+    font-size: 0.95rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--ink);
+  }
+  #device-input:focus { outline: 2px solid var(--blue-600); outline-offset: 1px; }
+
+  #search-btn {
+    padding: 10px 22px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    background: var(--blue-600);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  #search-btn:hover:not(:disabled) { background: var(--blue-700); }
+  #search-btn:disabled { opacity: 0.6; cursor: default; }
+
+  .inline-msg {
+    width: 100%;
+    font-size: 0.88rem;
+    color: var(--ink-3);
+    margin-top: 4px;
+  }
+
+  /* Loading */
+  .loading-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 4px;
+    color: var(--ink-2);
+    font-size: 0.92rem;
+  }
+  .spinner {
+    width: 18px;
+    height: 18px;
+    border: 3px solid var(--blue-100);
+    border-top-color: var(--blue-600);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Error card */
+  .error-card {
+    background: var(--red-bg);
+    border: 1px solid var(--red-bd);
+    color: var(--red-ink);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-top: 12px;
+  }
+  .error-card .status { font-weight: 700; margin-bottom: 4px; }
+
+  /* Hero (attention index) */
+  .hero {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--blue-600);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin-top: 16px;
+  }
+  .hero .device-name { font-size: 1.1rem; font-weight: 600; color: var(--ink); }
+  .hero .value-row { display: flex; align-items: baseline; gap: 16px; margin-top: 8px; flex-wrap: wrap; }
+  .hero .value { font-size: 2.4rem; font-weight: 700; color: var(--blue-900); font-variant-numeric: tabular-nums; }
+  .hero .value-label { font-size: 0.85rem; color: var(--ink-3); }
+  .hero .meta { margin-top: 4px; font-size: 0.9rem; color: var(--ink-2); }
+  .hero .formula { margin-top: 10px; font-size: 0.8rem; color: var(--ink-3); }
+  .hero .caveat { margin-top: 10px; font-size: 0.82rem; color: var(--amber-ink); background: var(--amber-bg); border: 1px solid var(--amber-bd); border-radius: 6px; padding: 6px 10px; display: inline-block; }
+
+  /* KPI-like summary row */
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-top: 14px; }
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--blue-600);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .kpi .value { font-size: 1.5rem; font-weight: 700; color: var(--blue-900); font-variant-numeric: tabular-nums; }
+  .kpi .label { margin-top: 4px; font-size: 0.82rem; color: var(--ink-2); }
+
+  /* Signal cards grid: 3 columns desktop, 2 tablet, 1 mobile. */
+  .signals-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+
+  /* Tablet */
+  @media (max-width: 768px) {
+    .container { padding: 1rem; }
+    header { padding: 1.25rem 1.25rem; }
+    header h1 { font-size: 1.2rem; }
+    .hero .value { font-size: 2rem; }
+    .signals-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* Mobile */
+  @media (max-width: 480px) {
+    .container { padding: 0.75rem; }
+    header { padding: 1rem; margin-bottom: 1rem; }
+    .signals-grid { grid-template-columns: 1fr; }
+    .kpis { grid-template-columns: repeat(2, 1fr); }
+    #device-input { flex-basis: 100%; }
+    #search-btn { width: 100%; }
+    .hero { padding: 1rem; }
+    .hero .value { font-size: 1.75rem; }
+  }
+
+  .signal-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .signal-card .top-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .signal-card .sig-name { font-weight: 600; font-size: 0.95rem; color: var(--ink); }
+  .signal-card .sig-value { font-size: 1.3rem; font-weight: 700; color: var(--blue-900); font-variant-numeric: tabular-nums; }
+  .signal-card .chip-row { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  .chip {
+    display: inline-block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 2px 11px;
+    border: 1px solid;
+  }
+  .chip.label-low    { background: #dcfce7; color: #15803d; border-color: #bbf7d0; }
+  .chip.label-medium  { background: var(--amber-bg); color: var(--amber-ink); border-color: var(--amber-bd); }
+  .chip.label-high    { background: var(--red-bg); color: var(--red-ink); border-color: var(--red-bd); }
+  .chip.label-unknown { background: var(--gray-bg); color: var(--gray-ink); border-color: var(--gray-bd); }
+
+  .chip.conf-badge {
+    background: var(--blue-50);
+    color: var(--blue-700);
+    border-color: var(--blue-100);
+  }
+
+  .reasoning {
+    font-size: 0.85rem;
+    color: var(--ink-2);
+    line-height: 1.4;
+  }
+  .reasoning.collapsed {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .toggle-link {
+    align-self: flex-start;
+    background: none;
+    border: none;
+    color: var(--blue-600);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+  }
+  .toggle-link:hover { text-decoration: underline; }
+
+  /* Data quality */
+  .dq-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-top: 14px;
+  }
+  .dq-card ul { list-style: none; }
+  .dq-card li {
+    font-size: 0.86rem;
+    color: var(--ink-2);
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .dq-card li:last-child { border-bottom: none; }
+  .dq-warning {
+    margin-top: 8px;
+    font-size: 0.85rem;
+    color: var(--amber-ink);
+    background: var(--amber-bg);
+    border: 1px solid var(--amber-bd);
+    border-radius: 6px;
+    padding: 6px 10px;
+    display: inline-block;
+  }
+
+  .api-disclaimer {
+    margin-top: 14px;
+    font-size: 0.8rem;
+    color: var(--ink-3);
+    font-style: italic;
+  }
+
+  footer {
+    margin-top: 32px;
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--ink-3);
+    padding-bottom: 12px;
+  }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <div class="title-row">
+    <h1>medical-device-intelligence</h1>
+    <span class="badge">v0.1.0</span>
+  </div>
+  <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Toggle dark mode">🌙</button>
+</header>
+
+<main>
+  <section class="search">
+    <h2>Search a Device</h2>
+    <div class="card">
+      <input type="text" id="device-input" placeholder="pacemaker" autocomplete="off">
+      <button type="button" id="search-btn">Search</button>
+      <div class="inline-msg hidden" id="empty-msg">Please enter a device name to search.</div>
+    </div>
+  </section>
+
+  <section class="results" id="results">
+    <!-- Populated dynamically by JS -->
+  </section>
+</main>
+
+<footer>
+  Educational use only. NOT medical advice.
+</footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var themeBtn = document.getElementById('theme-toggle');
+  var input = document.getElementById('device-input');
+  var searchBtn = document.getElementById('search-btn');
+  var emptyMsg = document.getElementById('empty-msg');
+  var results = document.getElementById('results');
+
+  // ---- Theme toggle ----
+  function updateThemeBtn() {
+    var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    themeBtn.textContent = isDark ? '☀️' : '🌙';
+  }
+  updateThemeBtn();
+
+  themeBtn.addEventListener('click', function () {
+    var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    if (isDark) {
+      document.documentElement.removeAttribute('data-theme');
+      try { localStorage.setItem('theme', 'light'); } catch (e) {}
+    } else {
+      document.documentElement.setAttribute('data-theme', 'dark');
+      try { localStorage.setItem('theme', 'dark'); } catch (e) {}
+    }
+    updateThemeBtn();
+  });
+
+  // ---- Search wiring ----
+  searchBtn.addEventListener('click', doSearch);
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') doSearch();
+  });
+
+  function clearChildren(el) {
+    while (el.firstChild) el.removeChild(el.firstChild);
+  }
+
+  function doSearch() {
+    var device = input.value.trim();
+    clearChildren(results);
+    if (!device) {
+      emptyMsg.classList.remove('hidden');
+      return;
+    }
+    emptyMsg.classList.add('hidden');
+
+    var url = window.location.origin;
+    var dossierUrl = '/api/dossier?device=' + encodeURIComponent(device);
+    var signalsUrl = '/api/signals?device=' + encodeURIComponent(device);
+
+    setLoading(true);
+    showLoadingState();
+
+    Promise.all([
+      fetchJson(dossierUrl),
+      fetchJson(signalsUrl)
+    ]).then(function (pair) {
+      setLoading(false);
+      clearChildren(results);
+      renderResults(pair[0], pair[1]);
+    }).catch(function (err) {
+      setLoading(false);
+      clearChildren(results);
+      renderNetworkError(err);
+    });
+  }
+
+  function setLoading(isLoading) {
+    searchBtn.disabled = isLoading;
+  }
+
+  function showLoadingState() {
+    clearChildren(results);
+    var row = document.createElement('div');
+    row.className = 'loading-row';
+    var spinner = document.createElement('div');
+    spinner.className = 'spinner';
+    var text = document.createElement('span');
+    text.textContent = 'Loading… (live queries can take up to a minute)';
+    row.appendChild(spinner);
+    row.appendChild(text);
+    results.appendChild(row);
+  }
+
+  // fetchJson resolves to {ok, status, data} rather than rejecting on non-2xx,
+  // so both success and API-level error bodies can be rendered distinctly
+  // from actual network failures.
+  function fetchJson(url) {
+    return fetch(url, { credentials: 'same-origin' }).then(function (resp) {
+      return resp.json().catch(function () {
+        return {};
+      }).then(function (data) {
+        return { ok: resp.ok, status: resp.status, data: data };
+      });
+    });
+  }
+
+  function renderNetworkError(err) {
+    var card = document.createElement('div');
+    card.className = 'error-card';
+    var status = document.createElement('div');
+    status.className = 'status';
+    status.textContent = 'Network error';
+    var msg = document.createElement('div');
+    msg.textContent = 'Could not reach the server. Please check your connection and try again.';
+    card.appendChild(status);
+    card.appendChild(msg);
+    results.appendChild(card);
+  }
+
+  function renderApiError(label, resp) {
+    var card = document.createElement('div');
+    card.className = 'error-card';
+    var status = document.createElement('div');
+    status.className = 'status';
+    status.textContent = label + ' — HTTP ' + resp.status;
+    var msg = document.createElement('div');
+    var errText = (resp.data && (resp.data.error || resp.data.Error)) || 'Unknown error.';
+    msg.textContent = errText;
+    card.appendChild(status);
+    card.appendChild(msg);
+    if (resp.data && (resp.data.disclaimer || resp.data.Disclaimer)) {
+      var disc = document.createElement('div');
+      disc.className = 'api-disclaimer';
+      disc.textContent = resp.data.disclaimer || resp.data.Disclaimer;
+      card.appendChild(disc);
+    }
+    results.appendChild(card);
+  }
+
+  function renderResults(dossierResp, signalsResp) {
+    var anyOk = false;
+
+    if (!dossierResp.ok) {
+      renderApiError('Dossier lookup failed', dossierResp);
+    } else {
+      anyOk = true;
+      renderHero(dossierResp.data);
+      renderDataQuality(dossierResp.data);
+    }
+
+    if (!signalsResp.ok) {
+      renderApiError('Signals lookup failed', signalsResp);
+    } else {
+      anyOk = true;
+      renderSignals(signalsResp.data);
+    }
+
+    // Render whichever disclaimer we have, preferring the dossier's.
+    var disclaimer = null;
+    if (dossierResp.ok && (dossierResp.data.disclaimer || dossierResp.data.Disclaimer)) {
+      disclaimer = dossierResp.data.disclaimer || dossierResp.data.Disclaimer;
+    } else if (signalsResp.ok && (signalsResp.data.disclaimer || signalsResp.data.Disclaimer)) {
+      disclaimer = signalsResp.data.disclaimer || signalsResp.data.Disclaimer;
+    }
+    if (anyOk && disclaimer) {
+      var disc = document.createElement('div');
+      disc.className = 'api-disclaimer';
+      disc.textContent = disclaimer;
+      results.appendChild(disc);
+    }
+  }
+
+  // ---- Dossier: hero + data quality ----
+  function renderHero(d) {
+    d = d || {};
+    var device = d.device || d.Device || '';
+    var attentionIndex = d.attention_index != null ? d.attention_index : d.AttentionIndex;
+    var formula = d.index_formula || d.IndexFormula || '';
+    var signalsMeasured = d.signals_measured != null ? d.signals_measured : d.SignalsMeasured;
+
+    var hero = document.createElement('div');
+    hero.className = 'hero';
+
+    var nameEl = document.createElement('div');
+    nameEl.className = 'device-name';
+    nameEl.textContent = device || '(unknown device)';
+    hero.appendChild(nameEl);
+
+    var valueRow = document.createElement('div');
+    valueRow.className = 'value-row';
+    var valueEl = document.createElement('div');
+    valueEl.className = 'value';
+    valueEl.textContent = (typeof attentionIndex === 'number') ? attentionIndex.toFixed(2) : '—';
+    var valueLabel = document.createElement('div');
+    valueLabel.className = 'value-label';
+    valueLabel.textContent = 'Attention Index';
+    valueRow.appendChild(valueEl);
+    valueRow.appendChild(valueLabel);
+    hero.appendChild(valueRow);
+
+    var meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.textContent = 'Signals measured: ' + (signalsMeasured != null ? signalsMeasured : '—');
+    hero.appendChild(meta);
+
+    if (formula) {
+      var formulaEl = document.createElement('div');
+      formulaEl.className = 'formula';
+      formulaEl.textContent = 'Formula: ' + formula;
+      hero.appendChild(formulaEl);
+    }
+
+    var caveat = document.createElement('div');
+    caveat.className = 'caveat';
+    caveat.textContent = 'Measures public-record attention, NOT risk.';
+    hero.appendChild(caveat);
+
+    results.appendChild(hero);
+
+    var highlights = d.highlights || d.Highlights;
+    if (highlights && highlights.length) {
+      var hlCard = document.createElement('div');
+      hlCard.className = 'dq-card';
+      var hlTitle = document.createElement('h2');
+      hlTitle.textContent = 'Highlights';
+      hlTitle.style.margin = '0 0 8px';
+      var hlList = document.createElement('ul');
+      highlights.forEach(function (h) {
+        var li = document.createElement('li');
+        li.textContent = h;
+        hlList.appendChild(li);
+      });
+      hlCard.appendChild(hlTitle);
+      hlCard.appendChild(hlList);
+      results.appendChild(hlCard);
+    }
+  }
+
+  function renderDataQuality(d) {
+    d = d || {};
+    var dataQuality = d.data_quality || d.DataQuality || [];
+    var notes = d.notes || d.Notes || [];
+
+    if (!dataQuality.length && !notes.length) return;
+
+    var card = document.createElement('div');
+    card.className = 'dq-card';
+
+    var title = document.createElement('h2');
+    title.textContent = 'Data Quality';
+    title.style.margin = '0 0 8px';
+    card.appendChild(title);
+
+    if (notes.length) {
+      var warn = document.createElement('div');
+      warn.className = 'dq-warning';
+      warn.textContent = 'Partial: ' + notes.length + ' probe(s) unavailable.';
+      card.appendChild(warn);
+    }
+
+    if (dataQuality.length) {
+      var list = document.createElement('ul');
+      dataQuality.forEach(function (line) {
+        var li = document.createElement('li');
+        li.textContent = line;
+        list.appendChild(li);
+      });
+      card.appendChild(list);
+    }
+
+    results.appendChild(card);
+  }
+
+  // ---- Signals grid ----
+  function labelClass(label) {
+    var l = (label || '').toLowerCase();
+    if (l === 'low') return 'label-low';
+    if (l === 'medium') return 'label-medium';
+    if (l === 'high' || l === 'critical') return 'label-high';
+    return 'label-unknown';
+  }
+
+  function renderSignals(s) {
+    s = s || {};
+    var records = s.records || s.Records || [];
+    var count = s.count != null ? s.count : s.Count;
+    var summary = s.summary || s.Summary || {};
+
+    var heading = document.createElement('h2');
+    heading.textContent = 'Signals' + (count != null ? ' (' + count + ')' : '');
+    results.appendChild(heading);
+
+    if (summary && (summary.readable != null || summary.Readable != null || summary.note || summary.Note)) {
+      var kpis = document.createElement('div');
+      kpis.className = 'kpis';
+
+      var readable = summary.readable != null ? summary.readable : summary.Readable;
+      var sigCount = summary.signals != null ? summary.signals : summary.Signals;
+
+      if (sigCount != null) kpis.appendChild(kpiBlock(sigCount, 'Signals'));
+      if (readable != null) kpis.appendChild(kpiBlock(readable, 'Readable'));
+
+      results.appendChild(kpis);
+
+      var noteText = summary.note || summary.Note;
+      if (noteText) {
+        var noteEl = document.createElement('div');
+        noteEl.className = 'inline-msg';
+        noteEl.textContent = noteText;
+        results.appendChild(noteEl);
+      }
+    }
+
+    if (!records.length) {
+      var empty = document.createElement('div');
+      empty.className = 'inline-msg';
+      empty.textContent = 'No signal records returned.';
+      results.appendChild(empty);
+      return;
+    }
+
+    var grid = document.createElement('div');
+    grid.className = 'signals-grid';
+    grid.style.marginTop = '14px';
+
+    records.forEach(function (rec) {
+      grid.appendChild(signalCard(rec));
+    });
+
+    results.appendChild(grid);
+  }
+
+  function kpiBlock(value, label) {
+    var kpi = document.createElement('div');
+    kpi.className = 'kpi';
+    var v = document.createElement('div');
+    v.className = 'value';
+    v.textContent = String(value);
+    var l = document.createElement('div');
+    l.className = 'label';
+    l.textContent = label;
+    kpi.appendChild(v);
+    kpi.appendChild(l);
+    return kpi;
+  }
+
+  function signalCard(rec) {
+    rec = rec || {};
+    var signal = rec.signal || rec.Signal || 'UNKNOWN';
+    var value = rec.value != null ? rec.value : rec.Value;
+    var label = rec.label || rec.Label || 'Unknown';
+    var confidence = rec.confidence || rec.Confidence || 'UNKNOWN';
+    var reasoning = rec.reasoning || rec.Reasoning || '';
+
+    var card = document.createElement('div');
+    card.className = 'signal-card';
+
+    var topRow = document.createElement('div');
+    topRow.className = 'top-row';
+    var nameEl = document.createElement('div');
+    nameEl.className = 'sig-name';
+    nameEl.textContent = signal;
+    var valueEl = document.createElement('div');
+    valueEl.className = 'sig-value';
+    valueEl.textContent = (typeof value === 'number') ? value.toFixed(2) : '—';
+    topRow.appendChild(nameEl);
+    topRow.appendChild(valueEl);
+    card.appendChild(topRow);
+
+    var chipRow = document.createElement('div');
+    chipRow.className = 'chip-row';
+    var labelChip = document.createElement('span');
+    labelChip.className = 'chip ' + labelClass(label);
+    labelChip.textContent = label;
+    var confChip = document.createElement('span');
+    confChip.className = 'chip conf-badge';
+    confChip.textContent = confidence;
+    chipRow.appendChild(labelChip);
+    chipRow.appendChild(confChip);
+    card.appendChild(chipRow);
+
+    if (reasoning) {
+      var reasoningEl = document.createElement('div');
+      reasoningEl.className = 'reasoning collapsed';
+      reasoningEl.textContent = reasoning;
+      card.appendChild(reasoningEl);
+
+      var toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'toggle-link';
+      toggle.textContent = 'more';
+      toggle.addEventListener('click', function () {
+        var collapsed = reasoningEl.classList.toggle('collapsed');
+        toggle.textContent = collapsed ? 'more' : 'less';
+      });
+      card.appendChild(toggle);
+    }
+
+    return card;
+  }
+})();
+</script>
+
+</body>
+</html>
