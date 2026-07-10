@@ -3,10 +3,26 @@
 *.db-journal
 *.db-wal
 *.db-shm
+*.sqlite
 
-# Built binaries
+# Built binaries / build artifacts
 *.exe
 /medical-device-intelligence-pp-cli
+bin/
+dist/
+
+# Temp / scratch
+/tmp/
+scratchpad/
+
+# Local test output
+dogfood-results.json
+export-pacemaker.csv
+phase2-dashboard.html
+
+# Environment / local config
+.env
+*.local
 
 # Editor / OS noise
 .DS_Store
