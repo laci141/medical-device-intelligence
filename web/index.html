@@ -476,6 +476,49 @@
   .verify a { color: var(--accent); font-size: 0.73rem; text-decoration: none; word-break: break-all; }
   .verify a:hover { text-decoration: underline; }
   .verify .note { font-size: 0.66rem; color: var(--ink-3); font-style: italic; }
+  .formula-box {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--ink-2);
+    background: var(--glass-strong);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    padding: 7px 10px;
+    line-height: 1.5;
+    word-break: break-word;
+  }
+  .fact-line { font-size: 0.66rem; color: var(--ink-3); font-family: var(--mono); }
+  .freshness {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--ink-3);
+    padding: 6px 12px;
+    margin: 0.3rem 0 0.8rem;
+    border: 1px solid var(--glass-border);
+    border-radius: 999px;
+    display: inline-block;
+    background: var(--glass);
+  }
+  .status-dot { font-size: 0.7rem; cursor: default; }
+  .gap-good { font-size: 0.78rem; color: var(--good); line-height: 1.45; }
+  .trend-svg { width: 100%; height: 90px; }
+  .trend-svg rect { fill: var(--accent); opacity: 0.85; }
+  .trend-svg text { font-family: var(--mono); font-size: 7px; fill: var(--ink-3); }
+  .prob-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .prob-chip {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    border: 1px solid var(--glass-border);
+    border-radius: 999px;
+    background: var(--glass);
+    padding: 3px 10px;
+    color: var(--ink-2);
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .prob-chip .cnt { color: var(--accent); font-weight: 700; margin-left: 5px; }
 
   /* ---- Error card ---- */
   .error-card {
@@ -656,9 +699,11 @@
     </div>
     <div>
       <h3>Limits</h3>
-      <p>MAUDE has a publication lag (the newest weeks look artificially quiet), many reports lack event dates,
+      <p>No usage denominator: public data does not include units sold, so volumes are NOT failure rates.
+      MAUDE has a publication lag (the newest weeks look artificially quiet), many reports lack event dates,
       and device name matching is textual — subsidiaries, brand names, and procedure-like names can blur
-      the picture. Data-quality readings on this page quantify some of these gaps.</p>
+      the picture. Signal weights and thresholds are editorial choices, documented per card under
+      “Methodology”. Data-quality readings on this page quantify some of these gaps.</p>
     </div>
   </div>
 </section>
@@ -691,15 +736,17 @@
       laymanExplain: 'Looks at every FDA adverse-event report for this device and how the reports split between deaths, injuries, and malfunctions.',
       whyItMatters: 'A higher mix means reports more often describe serious outcomes — but reporting practices differ a lot between device types and eras.',
       methodology: 'Weighted mean over MAUDE event types (Death=1.0, Injury=0.6, Malfunction=0.3), computed from server-side totals.',
+      formula: 'severity = (deaths×1.0 + injuries×0.6 + malfunctions×0.3) / total_reports',
       sourceBadges: ['openFDA MAUDE'],
       group: 'usage'
     },
     VOLUME: {
-      friendlyName: 'Report Volume',
-      plainQuestion: 'How many public records exist?',
+      friendlyName: 'Reported Event Count',
+      plainQuestion: 'How many reports were filed?',
       laymanExplain: 'Counts all FDA adverse-event reports and recalls for this device, compared to the most-reported device types.',
       whyItMatters: 'High volume usually means a widely used device — not necessarily a dangerous one.',
       methodology: 'device volume (MAUDE events + recalls) / p95 volume of the 100 most-reported device types in MAUDE.',
+      formula: 'volume = (maude_events + recalls) / p95(top-100 device-type volumes), capped at 1.0',
       sourceBadges: ['openFDA MAUDE', 'openFDA Recalls'],
       group: 'usage'
     },
@@ -709,6 +756,7 @@
       laymanExplain: 'Compares the number of reports in the last 90 days with the average of the four previous 90-day periods.',
       whyItMatters: 'A sustained rise can mean growing attention — or simply a reporting backlog being processed.',
       methodology: 'recent 90-day count vs mean of 4 prior periods; +300% saturates at 1.0. Caveat: FDA publication lag makes the newest weeks look artificially low.',
+      formula: 'shift = (recent_90d − mean(4 prior 90d periods)) / mean, +300% saturates at 1.0',
       sourceBadges: ['openFDA MAUDE'],
       group: 'usage'
     },
@@ -718,6 +766,7 @@
       laymanExplain: 'Weighs the device’s FDA recalls by class: Class I (the most serious category) counts most, Class III least.',
       whyItMatters: 'Class I means FDA judged a reasonable probability of serious health consequences for that recall — the mix shows how the device’s recall history skews.',
       methodology: 'Weighted mean of recall classifications (I=1.0, II=0.5, III=0.2) over openFDA enforcement records.',
+      formula: 'recall_severity = (classI×1.0 + classII×0.5 + classIII×0.2) / total_recalls',
       sourceBadges: ['openFDA Recalls'],
       group: 'regulation'
     },
@@ -727,6 +776,7 @@
       laymanExplain: 'Measures how recently the newest recall was initiated: a recall today scores 1.0, fading to 0 at five years.',
       whyItMatters: 'Recent enforcement means regulators acted lately. It is a recency reading, not a harm reading.',
       methodology: 'Linear five-year fade from the newest recall_initiation_date in openFDA enforcement.',
+      formula: 'recency = max(0, 1 − days_since_newest_recall / 1825)',
       sourceBadges: ['openFDA Recalls'],
       group: 'regulation'
     },
@@ -736,6 +786,7 @@
       laymanExplain: 'Classifies the device’s reporting history as emerging, growing, mature, or declining, based on two-year report windows.',
       whyItMatters: 'A mature, decades-old device accumulates records simply by being everywhere for a long time.',
       methodology: 'Five 2-year MAUDE windows; value = trajectory instability |newest − previous| / previous.',
+      formula: 'instability = |newest_window − previous_window| / previous_window',
       sourceBadges: ['openFDA MAUDE'],
       group: 'regulation'
     },
@@ -745,6 +796,7 @@
       laymanExplain: 'Checks whether adverse events, recalls, clinical trials, and research publications ALL hold records about this device.',
       whyItMatters: 'Documentation breadth shows how well-covered the device is across independent public feeds — it measures paperwork, not hazard.',
       methodology: 'feeds-with-records / 4 across MAUDE, enforcement, ClinicalTrials.gov, and PubMed.',
+      formula: 'corroboration = feeds_with_records / 4',
       sourceBadges: ['openFDA MAUDE', 'openFDA Recalls', 'ClinicalTrials.gov', 'PubMed'],
       group: 'research'
     },
@@ -754,6 +806,7 @@
       laymanExplain: 'Compares the amount of scientific evidence (trials plus publications) with the volume of adverse-event reports.',
       whyItMatters: 'A large gap means many reports exist but little published research is available to interpret them.',
       methodology: 'evidence records per 1000 MAUDE events; 50+/1000 reads as no gap (value 0).',
+      formula: 'gap = 1 − min(1, evidence_per_1000_events / 50)',
       sourceBadges: ['ClinicalTrials.gov', 'PubMed', 'openFDA MAUDE'],
       group: 'research'
     },
@@ -763,6 +816,7 @@
       laymanExplain: 'Compares this device’s severity mix with the average across ALL device reports in the FDA database.',
       whyItMatters: 'Only an above-global mix raises this reading; matching the global average reads Low.',
       methodology: 'device weighted severity − global MAUDE event-type mix; +0.30 above global saturates at 1.0.',
+      formula: 'delta = max(0, device_severity − global_severity) / 0.30, capped at 1.0',
       sourceBadges: ['openFDA MAUDE'],
       group: 'research'
     },
@@ -772,6 +826,7 @@
       laymanExplain: 'The share of reports filed by health professionals and consumers rather than by the manufacturer itself.',
       whyItMatters: 'More independent reporting means the public record depends less on a single interested party.',
       methodology: 'MAUDE source_type buckets (company / independent / other). Multi-valued field: bucket counts can exceed event totals.',
+      formula: 'independent_share = independent_reports / source-typed_reports',
       sourceBadges: ['openFDA MAUDE'],
       group: 'dataquality'
     },
@@ -781,6 +836,7 @@
       laymanExplain: 'The share of reports that have no event date recorded at all.',
       whyItMatters: 'Missing dates weaken every time-based reading on this page — trends, shifts, and lifecycle phases.',
       methodology: '_missing_:date_of_event totals over MAUDE device/event records.',
+      formula: 'missing_share = reports_without_date_of_event / total_reports',
       sourceBadges: ['openFDA MAUDE'],
       group: 'dataquality'
     }
@@ -1070,14 +1126,27 @@
           m = /newest recall initiated (\d{8}) \((\d+) days ago/.exec(text);
           if (!m) return null;
           var days = +m[2];
-          var span = 5 * 365; // the five-year fade window
+          // Adaptive scale: a recall under a year old gets a 12-month band
+          // with month ticks; older recalls use the five-year fade window.
+          var yearScale = days < 365;
+          var span = yearScale ? 365 : 5 * 365;
           var tl = elDiv('timeline');
           tl.appendChild(elDiv('tl-track'));
+          if (yearScale) {
+            for (var mi = 1; mi < 12; mi++) {
+              var tick = elDiv('tl-marker');
+              tick.style.left = (mi / 12) * 100 + '%';
+              tick.style.background = 'var(--glass-border)';
+              tick.style.height = '8px';
+              tick.style.top = '12px';
+              tl.appendChild(tick);
+            }
+          }
           var mk2 = elDiv('tl-marker');
           mk2.style.left = Math.max(0, Math.min(1, 1 - days / span)) * 100 + '%';
           tl.appendChild(mk2);
           var lab1 = elDiv('tl-lab');
-          lab1.textContent = '5y ago';
+          lab1.textContent = yearScale ? '12 months ago' : '5y ago';
           tl.appendChild(lab1);
           var lab2 = elDiv('tl-lab end');
           lab2.textContent = 'today';
@@ -1174,6 +1243,8 @@
 
   // The device term of the current search — the verify links need it.
   var currentDevice = '';
+  // Latest /api/trend and /api/failure-modes responses (rendered as extra cards).
+  var trendResp = null, problemsResp = null;
 
   function doSearch() {
     var device = input.value.trim();
@@ -1185,18 +1256,21 @@
     emptyMsg.classList.add('hidden');
     currentDevice = device;
 
-    var dossierUrl = '/api/dossier?device=' + encodeURIComponent(device);
-    var signalsUrl = '/api/signals?device=' + encodeURIComponent(device);
+    var enc = encodeURIComponent(device);
 
     setLoading(true);
     showLoadingState();
 
     Promise.all([
-      fetchJson(dossierUrl),
-      fetchJson(signalsUrl)
+      fetchJson('/api/dossier?device=' + enc),
+      fetchJson('/api/signals?device=' + enc),
+      fetchJson('/api/trend?device=' + enc),
+      fetchJson('/api/failure-modes?device=' + enc)
     ]).then(function (pair) {
       setLoading(false);
       clearChildren(results);
+      trendResp = pair[2];
+      problemsResp = pair[3];
       renderResults(pair[0], pair[1]);
     }).catch(function (err) {
       setLoading(false);
@@ -1332,11 +1406,26 @@
     };
   }
 
+  // Freshness header: dataset date, query time, and latency from the API meta.
+  function renderFreshness(meta) {
+    if (!meta) return;
+    var bits = [];
+    if (meta.openfda_last_updated) bits.push('Data: openFDA last updated ' + meta.openfda_last_updated);
+    if (meta.queried_at) bits.push('Queried ' + meta.queried_at.replace('T', ' ').replace('Z', ' UTC'));
+    if (meta.response_ms != null) bits.push(meta.response_ms + ' ms');
+    if (!bits.length) return;
+    var bar = elDiv('freshness');
+    bar.textContent = bits.join(' · ');
+    results.appendChild(bar);
+  }
+
   function renderResults(dossierResp, signalsResp) {
     staggerIndex = 0;
     var anyOk = false;
 
     var dossierSignals = (dossierResp.ok && (dossierResp.data.signals || [])) || [];
+    renderFreshness((dossierResp.ok && dossierResp.data.meta) ||
+      (signalsResp.ok && signalsResp.data.meta) || null);
 
     if (!dossierResp.ok) {
       renderApiError('Dossier lookup failed', dossierResp);
@@ -1695,8 +1784,107 @@
       list.forEach(function (n) {
         grid.appendChild(stagger(signalCard(n)));
       });
+      // The two data-endpoint cards live in the Usage & Reports group.
+      if (g.id === 'usage') {
+        var tc = trendCard();
+        if (tc) grid.appendChild(stagger(tc));
+        var pc = problemsCard();
+        if (pc) grid.appendChild(stagger(pc));
+      }
       results.appendChild(grid);
     });
+  }
+
+  // ---- Yearly Trend card (from /api/trend) ----
+  function trendCard() {
+    if (!trendResp || !trendResp.ok) return null;
+    var rows = trendResp.data.records || [];
+    if (!rows.length) return null;
+
+    var card = document.createElement('div');
+    card.className = 'glass signal-card span2';
+    var t = document.createElement('div');
+    t.className = 'sig-name';
+    t.textContent = 'Yearly Trend';
+    var code = document.createElement('span');
+    code.className = 'sig-code';
+    code.textContent = 'MAUDE reports received per year (last 10 years)';
+    t.appendChild(code);
+    card.appendChild(t);
+
+    var W = 300, H = 90, PADB = 12, PADT = 4;
+    var maxC = 0;
+    rows.forEach(function (r) { if (r.count > maxC) maxC = r.count; });
+    var svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('class', 'trend-svg');
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    svg.setAttribute('preserveAspectRatio', 'none');
+    var bw = W / rows.length;
+    rows.forEach(function (r, i) {
+      var h = maxC ? (r.count / maxC) * (H - PADB - PADT) : 0;
+      var rect = document.createElementNS(SVG_NS, 'rect');
+      rect.setAttribute('x', i * bw + 2);
+      rect.setAttribute('y', H - PADB - h);
+      rect.setAttribute('width', bw - 4);
+      rect.setAttribute('height', Math.max(1, h));
+      var title = document.createElementNS(SVG_NS, 'title');
+      title.textContent = r.year + ': ' + fmtNum(r.count) + ' reports';
+      rect.appendChild(title);
+      svg.appendChild(rect);
+      var label = document.createElementNS(SVG_NS, 'text');
+      label.setAttribute('x', i * bw + bw / 2);
+      label.setAttribute('y', H - 2);
+      label.setAttribute('text-anchor', 'middle');
+      label.textContent = String(r.year).slice(2);
+      svg.appendChild(label);
+    });
+    card.appendChild(svg);
+
+    var note = elDiv('spark-note');
+    note.textContent = 'MAUDE reporting volume per year — reporting practices change over time; not a failure rate.';
+    card.appendChild(note);
+    return card;
+  }
+
+  // ---- Top Reported Problems card (from /api/failure-modes) ----
+  function problemsCard() {
+    if (!problemsResp || !problemsResp.ok) return null;
+    var rows = problemsResp.data.records || [];
+    if (!rows.length) return null;
+
+    var card = document.createElement('div');
+    card.className = 'glass signal-card span2';
+    var t = document.createElement('div');
+    t.className = 'sig-name';
+    t.textContent = 'Top Reported Problems';
+    var code = document.createElement('span');
+    code.className = 'sig-code';
+    code.textContent = 'product_problems.exact · top 10';
+    t.appendChild(code);
+    card.appendChild(t);
+
+    var maxC = rows[0].count || 1;
+    var chips = elDiv('prob-chips');
+    rows.forEach(function (r) {
+      var chip = document.createElement('span');
+      chip.className = 'prob-chip';
+      var scale = r.count / maxC; // size and emphasis follow the count
+      chip.style.fontSize = (0.64 + scale * 0.16) + 'rem';
+      chip.style.color = scale > 0.66 ? 'var(--ink)' : (scale > 0.33 ? 'var(--ink-2)' : 'var(--ink-3)');
+      chip.textContent = r.problem;
+      chip.title = r.problem + ': ' + fmtNum(r.count) + ' reports';
+      var cnt = document.createElement('span');
+      cnt.className = 'cnt';
+      cnt.textContent = fmtNum(r.count);
+      chip.appendChild(cnt);
+      chips.appendChild(chip);
+    });
+    card.appendChild(chips);
+
+    var note = elDiv('spark-note');
+    note.textContent = 'Device problem terms as filed in MAUDE, verbatim.';
+    card.appendChild(note);
+    return card;
   }
 
   function signalCard(n) {
@@ -1729,6 +1917,15 @@
     var valueEl = document.createElement('div');
     valueEl.className = 'sig-value';
     valueEl.textContent = (typeof n.value === 'number') ? n.value.toFixed(2) : '—';
+    // Status dot: attention band by value, with a fact-language tooltip.
+    if (typeof n.value === 'number') {
+      var dot2 = document.createElement('span');
+      dot2.className = 'status-dot';
+      dot2.textContent = n.value < 0.3 ? ' 🟢' : (n.value <= 0.6 ? ' 🟡' : ' 🔴');
+      dot2.title = (n.value < 0.3 ? 'Low attention' : (n.value <= 0.6 ? 'Elevated' : 'High attention')) +
+        ' — attention level in public records, not safety';
+      valueEl.appendChild(dot2);
+    }
     topRow.appendChild(nameEl);
     topRow.appendChild(valueEl);
     card.appendChild(topRow);
@@ -1737,6 +1934,23 @@
     q.className = 'plain-q';
     q.textContent = '“' + m.plainQuestion + '”';
     card.appendChild(q);
+
+    // Evidence Gap at value 0 is a GOOD reading — say so in plain language.
+    if (n.type === 'EVIDENCE_GAP' && n.value === 0) {
+      var per = /= ([\d.]+) per 1000 events/.exec(n.reasoning);
+      var good = document.createElement('div');
+      good.className = 'gap-good';
+      good.textContent = 'No gap — ' + (per ? per[1] : 'enough') +
+        ' evidence records per 1000 reported events (above the 50/1000 coverage threshold).';
+      card.appendChild(good);
+    }
+    // Volume at the p95 cap: a factual percentile sentence.
+    if (n.type === 'VOLUME' && typeof n.value === 'number' && n.value >= 1) {
+      var pctLine = document.createElement('div');
+      pctLine.className = 'fact-line';
+      pctLine.textContent = 'More reported events than at least 95% of the top-100 most-reported device types.';
+      card.appendChild(pctLine);
+    }
 
     // Mini progress bar visualizing the 0..1 value, colored by label.
     var track = document.createElement('div');
@@ -1784,6 +1998,20 @@
 
     // Progressive disclosure #2: methodology + sources + raw module reasoning.
     card.appendChild(disclosure('Methodology ▾', function (holder) {
+      if (m.formula) {
+        var fbox = document.createElement('div');
+        fbox.className = 'formula-box';
+        fbox.textContent = 'FORMULA: ' + m.formula;
+        holder.appendChild(fbox);
+        var fact = document.createElement('div');
+        fact.className = 'fact-line';
+        fact.textContent = 'FACT: FDA raw counts · COMPUTED: this index · THRESHOLD: the stated saturation/coverage cutoffs';
+        holder.appendChild(fact);
+        var lim = document.createElement('div');
+        lim.className = 'fact-line';
+        lim.textContent = 'LIMIT: weights and thresholds are editorial choices, documented here.';
+        holder.appendChild(lim);
+      }
       var meth = document.createElement('p');
       meth.className = 'method';
       meth.textContent = m.methodology;
@@ -1807,8 +2035,12 @@
       }
       var conf = document.createElement('p');
       conf.className = 'why';
-      conf.textContent = (CONF_EXPLAIN[n.confidence] || '') +
-        ' (HIGH = complete server-side counts; MEDIUM = partial or lagging data.)';
+      var reasons = {
+        HIGH: 'HIGH because: all feeds responded · server-side totals (no page sampling) · no missing required fields.',
+        MEDIUM: 'MEDIUM because: partial or lagging data (e.g. textual phrase matching, reporting lag).',
+        LOW: 'LOW because: sparse data — read as a lead, not a measurement.'
+      };
+      conf.textContent = reasons[n.confidence] || (CONF_EXPLAIN[n.confidence] || '');
       holder.appendChild(conf);
       // Verify-at-source: live links to the raw government queries.
       var links = verifyLinks(n.type, currentDevice);

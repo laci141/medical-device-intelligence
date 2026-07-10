@@ -11,11 +11,14 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/laci141/medical-device-intelligence/internal/cliutil"
+	"github.com/laci141/medical-device-intelligence/internal/sources"
 	"github.com/laci141/medical-device-intelligence/web"
 )
 
@@ -94,6 +97,9 @@ type apiRoute struct {
 	params []string
 	// argv builds the command argv (including the command name) from the query.
 	argv func(q url.Values) []string
+	// addMeta folds a freshness meta block (queried_at, response_ms,
+	// openfda_last_updated, sources) into the response envelope.
+	addMeta bool
 }
 
 var apiRoutes = map[string]apiRoute{
@@ -102,12 +108,14 @@ var apiRoutes = map[string]apiRoute{
 		argv:   func(q url.Values) []string { return []string{"search", q.Get("device"), "--json"} },
 	},
 	"/api/signals": {
-		params: []string{"device"},
-		argv:   func(q url.Values) []string { return []string{"signals", "--device", q.Get("device"), "--json"} },
+		params:  []string{"device"},
+		argv:    func(q url.Values) []string { return []string{"signals", "--device", q.Get("device"), "--json"} },
+		addMeta: true,
 	},
 	"/api/dossier": {
-		params: []string{"device"},
-		argv:   func(q url.Values) []string { return []string{"dossier", "--device", q.Get("device"), "--json"} },
+		params:  []string{"device"},
+		argv:    func(q url.Values) []string { return []string{"dossier", "--device", q.Get("device"), "--json"} },
+		addMeta: true,
 	},
 	"/api/compare": {
 		params: []string{"a", "b"},
@@ -120,6 +128,8 @@ var apiRoutes = map[string]apiRoute{
 func NewServeHandler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/health", handleHealth)
+	mux.HandleFunc("/api/trend", handleTrend)
+	mux.HandleFunc("/api/failure-modes", handleFailureModes)
 	for path, route := range apiRoutes {
 		mux.HandleFunc(path, routeHandler(route))
 	}
@@ -166,13 +176,18 @@ func routeHandler(route apiRoute) http.HandlerFunc {
 			}
 		}
 		var out, errBuf bytes.Buffer
+		start := time.Now()
 		code := Dispatch(r.Context(), &out, &errBuf, route.argv(q))
 		switch code {
 		case 0:
+			body := out.Bytes()
+			if route.addMeta {
+				body = withMeta(r.Context(), body, start)
+			}
 			w.Header().Set("Content-Type", "application/json")
 			w.Header().Set("Access-Control-Allow-Origin", "*")
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write(out.Bytes())
+			_, _ = w.Write(body)
 		case 2:
 			writeJSONError(w, http.StatusBadRequest, firstLine(errBuf.String()))
 		default:
@@ -215,6 +230,182 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 func writeJSONError(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]any{
 		"error":      msg,
+		"disclaimer": cliutil.Disclaimer,
+	})
+}
+
+// ---- Freshness meta ----
+
+// apiSources is the fixed source list surfaced in the meta block.
+var apiSources = []string{"openFDA MAUDE", "openFDA Enforcement", "ClinicalTrials.gov v2", "PubMed"}
+
+// fetchOpenFDALastUpdated probes openFDA for its dataset timestamp. An
+// indirection so tests can stub it without a network call.
+var fetchOpenFDALastUpdated = func(ctx context.Context) string {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.fda.gov/device/event.json?limit=1", nil)
+	if err != nil {
+		return ""
+	}
+	resp, err := (&http.Client{Timeout: 10 * time.Second}).Do(req)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	var env struct {
+		Meta struct {
+			LastUpdated string `json:"last_updated"`
+		} `json:"meta"`
+	}
+	if json.NewDecoder(resp.Body).Decode(&env) != nil {
+		return ""
+	}
+	return env.Meta.LastUpdated
+}
+
+var luCache struct {
+	mu  sync.Mutex
+	val string
+	at  time.Time
+}
+
+// lastUpdatedCached caches the openFDA dataset timestamp for an hour so the
+// freshness header doesn't cost an extra upstream round-trip per request.
+func lastUpdatedCached(ctx context.Context) string {
+	luCache.mu.Lock()
+	defer luCache.mu.Unlock()
+	if luCache.val != "" && time.Since(luCache.at) < time.Hour {
+		return luCache.val
+	}
+	if v := fetchOpenFDALastUpdated(ctx); v != "" {
+		luCache.val, luCache.at = v, time.Now()
+	}
+	return luCache.val
+}
+
+// withMeta folds the freshness block into a command's JSON envelope. On any
+// parse hiccup the original body passes through untouched.
+func withMeta(ctx context.Context, body []byte, start time.Time) []byte {
+	var obj map[string]any
+	if json.Unmarshal(body, &obj) != nil {
+		return body
+	}
+	obj["meta"] = map[string]any{
+		"queried_at":           time.Now().UTC().Format(time.RFC3339),
+		"response_ms":          time.Since(start).Milliseconds(),
+		"openfda_last_updated": lastUpdatedCached(ctx),
+		"sources":              apiSources,
+	}
+	b, err := json.Marshal(obj)
+	if err != nil {
+		return body
+	}
+	return b
+}
+
+// ---- Direct data endpoints (sources layer, no CLI command behind them) ----
+
+// handleTrend answers /api/trend?device=X with the last 10 years of MAUDE
+// report totals, one server-side date-bounded count per year.
+func handleTrend(w http.ResponseWriter, r *http.Request) {
+	if !allowGET(w, r) {
+		return
+	}
+	device := strings.TrimSpace(r.URL.Query().Get("device"))
+	if device == "" {
+		writeJSONError(w, http.StatusBadRequest, "device required")
+		return
+	}
+	src, ok := getSource("openfda_device_event")
+	if !ok {
+		writeJSONError(w, http.StatusBadGateway, "event source unavailable")
+		return
+	}
+	year := time.Now().Year()
+	type yearCount struct {
+		Year  int `json:"year"`
+		Count int `json:"count"`
+	}
+	rows := make([]yearCount, 0, 10)
+	var notes []string
+	for y := year - 9; y <= year; y++ {
+		q := sources.Query{
+			Term:      device,
+			Limit:     1,
+			DateField: "date_received",
+			DateFrom:  fmt.Sprintf("%d0101", y),
+			DateTo:    fmt.Sprintf("%d1231", y),
+		}
+		_, page, err := src.Fetch(r.Context(), q)
+		if err != nil {
+			notes = append(notes, fmt.Sprintf("%d unavailable: %v", y, err))
+			continue
+		}
+		rows = append(rows, yearCount{Year: y, Count: page.Total})
+	}
+	resp := map[string]any{
+		"records":    rows,
+		"count":      len(rows),
+		"note":       "MAUDE reports received per year (server-side totals); reporting practices change over time — not a failure rate",
+		"disclaimer": cliutil.Disclaimer,
+	}
+	if len(notes) > 0 {
+		resp["partial"] = notes
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+// fieldCounter is the source capability the failure-modes endpoint needs.
+type fieldCounter interface {
+	CountField(ctx context.Context, q sources.Query, field string) (map[string]int, error)
+}
+
+// handleFailureModes answers /api/failure-modes?device=X with the top-10
+// MAUDE product_problems.exact terms, verbatim as filed.
+func handleFailureModes(w http.ResponseWriter, r *http.Request) {
+	if !allowGET(w, r) {
+		return
+	}
+	device := strings.TrimSpace(r.URL.Query().Get("device"))
+	if device == "" {
+		writeJSONError(w, http.StatusBadRequest, "device required")
+		return
+	}
+	src, ok := getSource("openfda_device_event")
+	if !ok {
+		writeJSONError(w, http.StatusBadGateway, "event source unavailable")
+		return
+	}
+	counter, ok := src.(fieldCounter)
+	if !ok {
+		writeJSONError(w, http.StatusBadGateway, "event source lacks field counting")
+		return
+	}
+	counts, err := counter.CountField(r.Context(), sources.Query{Term: device}, "product_problems.exact")
+	if err != nil {
+		writeJSONError(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	type problem struct {
+		Problem string `json:"problem"`
+		Count   int    `json:"count"`
+	}
+	rows := make([]problem, 0, len(counts))
+	for p, c := range counts {
+		rows = append(rows, problem{Problem: p, Count: c})
+	}
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].Count != rows[j].Count {
+			return rows[i].Count > rows[j].Count
+		}
+		return rows[i].Problem < rows[j].Problem
+	})
+	if len(rows) > 10 {
+		rows = rows[:10]
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"records":    rows,
+		"count":      len(rows),
+		"note":       "device problem terms as filed in MAUDE, verbatim (product_problems.exact)",
 		"disclaimer": cliutil.Disclaimer,
 	})
 }
