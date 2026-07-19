@@ -531,9 +531,79 @@ func deviceRow(raw map[string]any) map[string]any {
 	}
 }
 
+// udiClient reaches openFDA directly for the one UDI search the sources
+// adapter's fixed brand/DI expression cannot ask for. Handler-level, like
+// handleTrend: the source definition stays untouched.
+var udiClient = cliutil.NewClient("https://api.fda.gov")
+
+// udiCategorySearch queries device/udi by FDA product-code name
+// (product_codes.openfda.device_name) — the field where "Pacemaker, Permanent,
+// Implantable" lives even when no manufacturer puts the word in a brand name.
+func udiCategorySearch(ctx context.Context, term string, limit int) ([]map[string]any, int, error) {
+	params := url.Values{}
+	params.Set("search", cliutil.Phrase("product_codes.openfda.device_name", term))
+	params.Set("limit", strconv.Itoa(limit))
+	body, _, err := udiClient.GetJSON(ctx, "/device/udi.json", params)
+	if err != nil {
+		var apiErr *cliutil.APIError
+		if errors.As(err, &apiErr) && apiErr.StatusCode == 404 {
+			return nil, 0, nil // no matches → empty, not an error
+		}
+		return nil, 0, err
+	}
+	var env struct {
+		Meta struct {
+			Results struct {
+				Total int `json:"total"`
+			} `json:"results"`
+		} `json:"meta"`
+		Results []map[string]any `json:"results"`
+	}
+	if err := json.Unmarshal(body, &env); err != nil {
+		return nil, 0, err
+	}
+	return env.Results, env.Meta.Results.Total, nil
+}
+
+// mergeDeviceRows unions the brand-name and product-category result sets,
+// deduplicating by UDI: a row present in both comes out once with matched_on
+// "Both". Rows without a UDI are kept as-is (never collapsed onto each other).
+// Returns the merged rows (capped at max) and the number of duplicates folded,
+// so the caller can report an honest union total.
+func mergeDeviceRows(brand, category []map[string]any, max int) ([]map[string]any, int) {
+	out := make([]map[string]any, 0, len(brand)+len(category))
+	seen := make(map[string]int, len(brand)) // udi -> index in out
+	dups := 0
+	add := func(rows []map[string]any, label string) {
+		for _, row := range rows {
+			udi, _ := row["udi"].(string)
+			if udi != "" {
+				if i, ok := seen[udi]; ok {
+					dups++
+					if out[i]["matched_on"] != label {
+						out[i]["matched_on"] = "Both"
+					}
+					continue
+				}
+				seen[udi] = len(out)
+			}
+			row["matched_on"] = label
+			out = append(out, row)
+		}
+	}
+	add(brand, "Brand name")
+	add(category, "Product category")
+	if max > 0 && len(out) > max {
+		out = out[:max]
+	}
+	return out, dups
+}
+
 // handleDevices answers /api/devices?device=X with flattened GUDID device
-// records (registration-style rows) from the existing openFDA UDI source.
-// Same direct-data pattern as handleTrend: the source itself is untouched.
+// records. Two searches run in parallel — brand name / UDI-DI (the existing
+// source) and FDA product-category name (direct) — because major manufacturers
+// rarely put the generic word in a brand name ("Azure XT DR MRI SureScan" is a
+// pacemaker). One failing leg degrades to the other's results, not to a 502.
 func handleDevices(w http.ResponseWriter, r *http.Request) {
 	if !allowGET(w, r) {
 		return
@@ -548,22 +618,63 @@ func handleDevices(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadGateway, "UDI source unavailable")
 		return
 	}
-	recs, page, err := src.Fetch(r.Context(), sources.Query{Term: device, Limit: 100})
-	if err != nil {
-		writeJSONError(w, http.StatusBadGateway, err.Error())
+
+	var (
+		brandRecs  []sources.RawRecord
+		brandTotal int
+		brandErr   error
+		catRecs    []map[string]any
+		catTotal   int
+		catErr     error
+		wg         sync.WaitGroup
+	)
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		var page sources.Page
+		brandRecs, page, brandErr = src.Fetch(r.Context(), sources.Query{Term: device, Limit: 100})
+		brandTotal = page.Total
+	}()
+	go func() {
+		defer wg.Done()
+		catRecs, catTotal, catErr = udiCategorySearch(r.Context(), device, 100)
+	}()
+	wg.Wait()
+	if brandErr != nil && catErr != nil {
+		writeJSONError(w, http.StatusBadGateway, brandErr.Error())
 		return
 	}
-	rows := make([]map[string]any, 0, len(recs))
-	for _, rec := range recs {
-		rows = append(rows, deviceRow(rec.Raw))
+
+	brandRows := make([]map[string]any, 0, len(brandRecs))
+	for _, rec := range brandRecs {
+		brandRows = append(brandRows, deviceRow(rec.Raw))
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"records":    rows,
-		"count":      len(rows),
-		"total":      page.Total,
-		"note":       "GUDID device records via openFDA device/udi (brand-name or UDI-DI match); registration data may be incomplete or delayed",
-		"disclaimer": cliutil.Disclaimer,
-	})
+	catRows := make([]map[string]any, 0, len(catRecs))
+	for _, raw := range catRecs {
+		catRows = append(catRows, deviceRow(raw))
+	}
+	rows, dups := mergeDeviceRows(brandRows, catRows, 100)
+
+	resp := map[string]any{
+		"records":        rows,
+		"count":          len(rows),
+		"total":          brandTotal + catTotal - dups,
+		"total_brand":    brandTotal,
+		"total_category": catTotal,
+		"note":           "GUDID device records via openFDA device/udi; union of a brand-name/UDI-DI search and an FDA product-category search, deduplicated by UDI (total is approximate when the sets overlap beyond the fetched pages); registration data may be incomplete or delayed",
+		"disclaimer":     cliutil.Disclaimer,
+	}
+	var partial []string
+	if brandErr != nil {
+		partial = append(partial, "brand-name search unavailable: "+brandErr.Error())
+	}
+	if catErr != nil {
+		partial = append(partial, "product-category search unavailable: "+catErr.Error())
+	}
+	if partial != nil {
+		resp["partial"] = partial
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // firstLine trims a multi-line stderr capture to its first line for the JSON

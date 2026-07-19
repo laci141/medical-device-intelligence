@@ -258,6 +258,53 @@ func TestDeviceRowClassNeverRaw(t *testing.T) {
 	}
 }
 
+// mergeDeviceRows must fold a UDI present in both search legs into ONE row
+// labeled "Both", keep distinct and UDI-less rows, and respect the cap.
+func TestMergeDeviceRowsDedup(t *testing.T) {
+	row := func(udi string) map[string]any { return map[string]any{"udi": udi} }
+
+	brand := []map[string]any{row("A"), row("B"), row("")}
+	category := []map[string]any{row("B"), row("C"), row("")}
+	rows, dups := mergeDeviceRows(brand, category, 100)
+
+	if len(rows) != 5 {
+		t.Fatalf("merged %d rows, want 5 (A, B, two UDI-less, C)", len(rows))
+	}
+	if dups != 1 {
+		t.Errorf("dups=%d want 1 (only B overlaps)", dups)
+	}
+	byUDI := map[string][]string{}
+	empties := []string{}
+	for _, r := range rows {
+		udi, _ := r["udi"].(string)
+		m, _ := r["matched_on"].(string)
+		if udi == "" {
+			empties = append(empties, m)
+			continue
+		}
+		byUDI[udi] = append(byUDI[udi], m)
+	}
+	if len(byUDI["B"]) != 1 || byUDI["B"][0] != "Both" {
+		t.Errorf("UDI B => %v, want exactly one row matched_on \"Both\"", byUDI["B"])
+	}
+	if len(byUDI["A"]) != 1 || byUDI["A"][0] != "Brand name" {
+		t.Errorf("UDI A => %v, want one \"Brand name\" row", byUDI["A"])
+	}
+	if len(byUDI["C"]) != 1 || byUDI["C"][0] != "Product category" {
+		t.Errorf("UDI C => %v, want one \"Product category\" row", byUDI["C"])
+	}
+	// Two records without a UDI must not be collapsed onto each other.
+	if len(empties) != 2 {
+		t.Errorf("UDI-less rows collapsed: got %d, want 2 (%v)", len(empties), empties)
+	}
+
+	// Cap: 3 unique rows, max 2 → exactly 2 out.
+	capped, _ := mergeDeviceRows([]map[string]any{row("A"), row("B")}, []map[string]any{row("C")}, 2)
+	if len(capped) != 2 {
+		t.Errorf("cap ignored: got %d rows, want 2", len(capped))
+	}
+}
+
 // openFDA's UDI endpoint serializes booleans as the strings "true"/"false";
 // sterilization and latex labeling must be read from either representation.
 func TestDeviceRowStringBooleans(t *testing.T) {

@@ -2188,7 +2188,8 @@
     ['listing_status', 'Listing Status'],
     ['sterilization', 'Sterilization'],
     ['latex', 'Latex Content'],
-    ['last_update', 'Last Update']
+    ['last_update', 'Last Update'],
+    ['matched_on', 'Matched On']
   ];
 
   function isoDate(v) {
@@ -2235,7 +2236,7 @@
     results.appendChild(heading);
     var desc = document.createElement('div');
     desc.className = 'group-desc';
-    desc.textContent = 'GUDID registration and listing records matching this term — click a column header to sort.';
+    desc.textContent = 'Matched on brand name and FDA product category. Device names vary by manufacturer, so a major brand may not appear even when it exists — verify at AccessGUDID before concluding a device is absent. Click a column header to sort.';
     results.appendChild(desc);
 
     var card = document.createElement('div');
