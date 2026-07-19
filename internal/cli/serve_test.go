@@ -5,6 +5,9 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -255,6 +258,58 @@ func TestDeviceRowClassNeverRaw(t *testing.T) {
 	// No product_codes at all must still yield a translated value.
 	if got, _ := deviceRow(map[string]any{})["device_class"].(string); got != "Not specified" {
 		t.Errorf("missing product_codes => %q, want \"Not specified\"", got)
+	}
+}
+
+// The category chips are pure frontend logic, so this test extracts the
+// marker-delimited buildCategoryChips function from web/index.html and runs
+// its invariants under node: chip counts must sum to the row count exactly
+// (no row lost, none double-counted), the empty category must survive the
+// chip cap as "Uncategorised", and no category may appear in two chips.
+func TestCategoryChipsSumInvariant(t *testing.T) {
+	nodeExe, err := exec.LookPath("node")
+	if err != nil {
+		t.Skip("node not installed; chip-logic invariant needs a JS runtime")
+	}
+	html, err := os.ReadFile(filepath.Join("..", "..", "web", "index.html"))
+	if err != nil {
+		t.Fatalf("read web/index.html: %v", err)
+	}
+	s := string(html)
+	start := strings.Index(s, "// chips-logic-start")
+	end := strings.Index(s, "// chips-logic-end")
+	if start < 0 || end < start {
+		t.Fatal("chips-logic markers missing from web/index.html")
+	}
+	script := s[start:end] + `
+const mk = (cat, n) => Array.from({ length: n }, () => ({ 'Product Category': cat }));
+const cases = [
+  [].concat(mk('A', 40), mk('B', 30), mk('', 14), mk('C', 9), mk('D', 7)),
+  // 12 distinct categories: exceeds the cap of 8, and the 1-row empty
+  // category must still surface instead of folding into Other.
+  [].concat(...'ABCDEFGHIJK'.split('').map((c, i) => mk(c, 12 - i)), mk('', 1)),
+  mk('', 5),
+  [],
+];
+for (const rows of cases) {
+  const chips = buildCategoryChips(rows, 8);
+  const sum = chips.reduce((a, c) => a + c.count, 0);
+  if (sum !== rows.length) { console.error('SUM MISMATCH', sum, '!=', rows.length); process.exit(1); }
+  const covered = new Set();
+  for (const ch of chips) for (const c of ch.cats) {
+    if (covered.has(c)) { console.error('CATEGORY IN TWO CHIPS:', JSON.stringify(c)); process.exit(1); }
+    covered.add(c);
+  }
+  if (rows.some(r => r['Product Category'] === '') && !chips.some(ch => ch.label === 'Uncategorised')) {
+    console.error('EMPTY CATEGORY FOLDED AWAY'); process.exit(1);
+  }
+  if (chips.length > 9) { console.error('TOO MANY CHIPS:', chips.length); process.exit(1); }
+}
+console.log('ok');
+`
+	out, err := exec.Command(nodeExe, "-e", script).CombinedOutput()
+	if err != nil {
+		t.Fatalf("chip invariant failed: %v\n%s", err, out)
 	}
 }
 

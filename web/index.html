@@ -554,6 +554,11 @@
   .qcount { color: var(--accent); font-size: 0.78rem; font-weight: 600; margin-left: 6px; }
   .quick-class3 { border-color: rgba(239, 68, 68, 0.5); color: var(--crit); }
   .quick-class3.active { background: rgba(239, 68, 68, 0.18); }
+  .cat-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 0.7rem; }
+  .cat-bar .cat-lbl { font-size: 0.75rem; color: var(--ink-3); margin-right: 2px; white-space: nowrap; }
+  .cat-chip .cnt { color: var(--ink-3); font-weight: 400; margin-left: 5px; }
+  .cat-chip.active { border-color: var(--accent); color: var(--accent); background: var(--glass-glow); }
+  .cat-chip.active .cnt { color: var(--accent); }
 
   /* ---- Device records table ---- */
   .dev-card { padding: 1rem 1.1rem 1.2rem; }
@@ -1336,6 +1341,7 @@
     emptyMsg.classList.add('hidden');
     currentDevice = device;
     lastData.udi = lastData.trend = lastData.problems = lastData.signals = null;
+    deviceView = null;
 
     var enc = encodeURIComponent(device);
 
@@ -1980,6 +1986,12 @@
   // ============================================================
   var lastData = { udi: null, trend: null, problems: null, signals: null };
 
+  // deviceView is the live view of the Device Records table: rows() returns
+  // what the user currently sees (category chip + text filter + Class III +
+  // sort applied), desc() names the active filters. Exports read THIS, not the
+  // full lastData set — what you see is what you export.
+  var deviceView = null;
+
   var ANALYSIS_LABEL = {
     udi: 'UDI device records',
     trend: 'Yearly MAUDE report trend',
@@ -1988,6 +2000,7 @@
   };
 
   function rowsFromLastData(key) {
+    if (key === 'udi' && deviceView) return deviceView.rows();
     var d = lastData[key];
     if (!d) return null;
     if (Array.isArray(d)) return d;
@@ -1997,9 +2010,20 @@
     return null;
   }
 
+  // exportTitle is the one-line provenance header written into exports: what
+  // this is, when, and — for the device table — which filters were active.
+  function exportTitle(key) {
+    var t = 'Devicera export · ' + (ANALYSIS_LABEL[key] || key) + ' · ' + new Date().toISOString().slice(0, 10);
+    if (key === 'udi' && deviceView) {
+      var d = deviceView.desc();
+      if (d) t += ' · ' + d;
+    }
+    return t;
+  }
+
   // CSV (RFC4180). Excel-safe: BOM + CRLF + explicit separator hint so EU
   // locales (semicolon-delimited by default) still open it into columns.
-  function toCSV(rows) {
+  function toCSV(rows, title) {
     var cols = [];
     rows.forEach(function (r) { Object.keys(r || {}).forEach(function (k) { if (cols.indexOf(k) === -1) cols.push(k); }); });
     var cell = function (v) {
@@ -2010,7 +2034,9 @@
       if (/[",\r\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
       return s;
     };
-    var lines = ["sep=,", cols.map(cell).join(',')];
+    var lines = ["sep=,"];
+    if (title) lines.push(cell(title));
+    lines.push(cols.map(cell).join(','));
     rows.forEach(function (r) { lines.push(cols.map(function (c) { return cell(r ? r[c] : ''); }).join(',')); });
     return '﻿' + lines.join('\r\n');
   }
@@ -2018,7 +2044,7 @@
   function downloadCSV(key, filename) {
     var rows = rowsFromLastData(key);
     if (!rows || !rows.length) { alert('Run a search first.'); return; }
-    triggerDownload(new Blob([toCSV(rows)], { type: 'text/csv;charset=utf-8' }), filename);
+    triggerDownload(new Blob([toCSV(rows, exportTitle(key))], { type: 'text/csv;charset=utf-8' }), filename);
   }
 
   // XLSX: styled header, measured column widths, centered short values,
@@ -2028,7 +2054,8 @@
     if (!rows || !rows.length) { alert('Run a search first.'); return; }
     var cols = [];
     rows.forEach(function (r) { Object.keys(r || {}).forEach(function (k) { if (cols.indexOf(k) === -1) cols.push(k); }); });
-    var aoa = [cols].concat(rows.map(function (r) {
+    // Row 0 is the provenance title (incl. active filters), row 1 the header.
+    var aoa = [[exportTitle(key)], cols].concat(rows.map(function (r) {
       return cols.map(function (c) {
         var v = r ? r[c] : '';
         if (v === null || v === undefined || v === false) return '';
@@ -2064,6 +2091,8 @@
         var addr = XLSX.utils.encode_cell({ r: R, c: C });
         if (!ws[addr]) continue;
         if (R === 0) {
+          ws[addr].s = { font: { bold: true, italic: true, color: { rgb: '4472C4' } } };
+        } else if (R === 1) {
           ws[addr].s = { font: { bold: true, color: { rgb: 'FFFFFF' } }, alignment: centerH,
             fill: { fgColor: { rgb: '4472C4' } },
             border: { bottom: { style: 'thin', color: { rgb: '999999' } } } };
@@ -2078,7 +2107,7 @@
       }
     }
     ws['!cols'] = colInfo.map(function (ci) { return { wch: ci.wch }; });
-    ws['!freeze'] = { xSplit: 0, ySplit: 1 };
+    ws['!freeze'] = { xSplit: 0, ySplit: 2 };
     var wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Devicera');
     XLSX.writeFile(wb, filename);
@@ -2135,10 +2164,18 @@
     if (!rows || !rows.length) { alert('Run a search first.'); return; }
     var devices = rows.filter(function (r) { return r && (r['UDI'] || r['Device Name']); });
     var text = devices.length ? toBibTeX(devices) : analysisBibTeX(key, rows);
+    text = '% ' + exportTitle(key) + '\n\n' + text;
     triggerDownload(new Blob([text], { type: 'application/x-bibtex;charset=utf-8' }), filename);
   }
 
   function downloadJSON(key, filename) {
+    if (key === 'udi' && deviceView) {
+      var vis = deviceView.rows();
+      if (!vis.length) { alert('No rows match the current filters.'); return; }
+      var wrapped = { export: exportTitle(key), records: vis };
+      triggerDownload(new Blob([JSON.stringify(wrapped, null, 2)], { type: 'application/json' }), filename);
+      return;
+    }
     var d = lastData[key];
     if (!d) { alert('Run a search first.'); return; }
     triggerDownload(new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' }), filename);
@@ -2196,6 +2233,36 @@
     var m = /^(\d{4}-\d{2}-\d{2})/.exec(String(v || ''));
     return m ? m[1] : String(v || '');
   }
+
+  // chips-logic-start (extracted verbatim by TestCategoryChipsSumInvariant)
+  // buildCategoryChips groups rows by their 'Product Category' value, most
+  // frequent first — fully data-driven, nothing hardcoded. At most maxChips
+  // category chips; the empty category always surfaces as "Uncategorised"
+  // (never silently folded away), and everything past the cap collapses into
+  // one "Other" chip. Invariant: chip counts sum to rows.length exactly.
+  function buildCategoryChips(rows, maxChips) {
+    var counts = {};
+    var order = [];
+    rows.forEach(function (r) {
+      var c = String((r && r['Product Category']) || '');
+      if (!(c in counts)) { counts[c] = 0; order.push(c); }
+      counts[c]++;
+    });
+    order.sort(function (a, b) { return (counts[b] - counts[a]) || a.localeCompare(b); });
+    var kept = order.slice(0, maxChips);
+    if (counts[''] && kept.indexOf('') === -1) kept[kept.length - 1] = '';
+    var rest = order.filter(function (c) { return kept.indexOf(c) === -1; });
+    var chips = kept.map(function (c) {
+      return { label: c === '' ? 'Uncategorised' : c, count: counts[c], cats: [c] };
+    });
+    if (rest.length) {
+      var n = 0;
+      rest.forEach(function (c) { n += counts[c]; });
+      chips.push({ label: 'Other', count: n, cats: rest });
+    }
+    return chips;
+  }
+  // chips-logic-end
 
   function classBadgeCls(v) {
     if (v === 'Class I') return 'c1';
@@ -2267,11 +2334,38 @@
     wrap.appendChild(table);
     card.appendChild(wrap);
 
-    var state = { filter: '', class3: false, sortIdx: -1, sortDir: 0 };
+    // Category chips: counts always come from the FULL result set, so chips
+    // never vanish while the user is typing in the text filter.
+    var chips = buildCategoryChips(rows, 8);
+    var catBar = null;
+    if (chips.length > 1) {
+      catBar = elDiv('cat-bar');
+      var lbl = document.createElement('span');
+      lbl.className = 'cat-lbl';
+      lbl.textContent = 'Filter by category:';
+      catBar.appendChild(lbl);
+      [{ label: 'All', count: rows.length, cats: null }].concat(chips).forEach(function (ch, i) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'dl cat-chip' + (i === 0 ? ' active' : '');
+        b.setAttribute('data-chip', String(i - 1)); // -1 = All
+        b.appendChild(document.createTextNode(ch.label));
+        var cnt = document.createElement('span');
+        cnt.className = 'cnt';
+        cnt.textContent = String(ch.count);
+        b.appendChild(cnt);
+        if (ch.cats && ch.cats.length > 1) b.title = ch.cats.join(' · ');
+        catBar.appendChild(b);
+      });
+      card.insertBefore(catBar, wrap); // between the meta row and the table
+    }
+
+    var state = { filter: '', class3: false, sortIdx: -1, sortDir: 0, category: null, categoryLabel: '' };
     var numRe = /^-?\d+(\.\d+)?$/;
 
     function viewRows() {
       var out = rows.filter(function (r) {
+        if (state.category && state.category.indexOf(String(r['Product Category'] || '')) === -1) return false;
         if (state.class3 && r['Device Class'] !== 'Class III') return false;
         if (state.filter) {
           var f = state.filter.toLowerCase();
@@ -2355,6 +2449,40 @@
       q3.classList.toggle('active', state.class3);
       renderBody();
     });
+
+    if (catBar) catBar.addEventListener('click', function (e) {
+      var btn = e.target && e.target.closest ? e.target.closest('.cat-chip') : null;
+      if (!btn || !catBar.contains(btn)) return;
+      var idx = +btn.getAttribute('data-chip');
+      var ch = idx >= 0 ? chips[idx] : null;
+      // Radio behavior: one category at a time; All (or re-clicking the
+      // active chip) resets to everything.
+      if (!ch || state.categoryLabel === ch.label) {
+        state.category = null;
+        state.categoryLabel = '';
+      } else {
+        state.category = ch.cats;
+        state.categoryLabel = ch.label;
+      }
+      Array.prototype.forEach.call(catBar.querySelectorAll('.cat-chip'), function (b) {
+        var i = +b.getAttribute('data-chip');
+        b.classList.toggle('active', state.category ? (i >= 0 && chips[i].label === state.categoryLabel) : i === -1);
+      });
+      renderBody();
+    });
+
+    // Publish the live view for the export suite: exports mirror exactly what
+    // the table shows under the current chips/filters/sort.
+    deviceView = {
+      rows: viewRows,
+      desc: function () {
+        var parts = [];
+        if (state.categoryLabel) parts.push('category: ' + state.categoryLabel);
+        if (state.filter) parts.push('filter: "' + state.filter + '"');
+        if (state.class3) parts.push('Class III only');
+        return parts.join(' · ');
+      }
+    };
 
     renderBody();
     results.appendChild(stagger(card));
