@@ -423,6 +423,23 @@ func asMaps(v any) []map[string]any {
 	return out
 }
 
+// looseBool reads a boolean that openFDA may serialize either as a JSON bool
+// or as the strings "true"/"false" (the UDI endpoint does the latter).
+func looseBool(v any) (val, ok bool) {
+	switch b := v.(type) {
+	case bool:
+		return b, true
+	case string:
+		if b == "true" {
+			return true, true
+		}
+		if b == "false" {
+			return false, true
+		}
+	}
+	return false, false
+}
+
 // deviceRow flattens one GUDID record into the registration-style table row
 // the frontend renders and exports. Missing fields stay empty strings so the
 // table and the exports never show "null".
@@ -456,11 +473,17 @@ func deviceRow(raw map[string]any) map[string]any {
 		class = "Class II"
 	case "3":
 		class = "Class III"
+	case "":
+		class = "Not specified"
+	default:
+		// GUDID uses "U" (and other letter codes) for unclassified and
+		// pre-amendment devices; never leak a raw code into the table.
+		class = "Unclassified"
 	}
 
 	sterile := ""
 	if st, ok := raw["sterilization"].(map[string]any); ok {
-		if b, ok := st["is_sterile"].(bool); ok {
+		if b, ok := looseBool(st["is_sterile"]); ok {
 			if b {
 				sterile = "Sterile"
 			} else {
@@ -477,7 +500,7 @@ func deviceRow(raw map[string]any) map[string]any {
 	}
 
 	latex := ""
-	if b, ok := raw["is_labeled_as_no_nrl"].(bool); ok {
+	if b, ok := looseBool(raw["is_labeled_as_no_nrl"]); ok {
 		if b {
 			latex = "Labeled latex-free"
 		} else {

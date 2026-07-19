@@ -579,6 +579,9 @@
   .class-badge.c1 { color: var(--good); }
   .class-badge.c2 { color: var(--warn); }
   .class-badge.c3 { color: var(--crit); }
+  .class-badge.cu { color: var(--ink-3); }
+  .dev-table td.udi-cell a { color: var(--accent); text-decoration: none; }
+  .dev-table td.udi-cell a:hover { text-decoration: underline; }
 
   /* ---- Legal notice ---- */
   .legal { margin-top: 1.25rem; padding: 1.2rem 1.4rem; }
@@ -2049,7 +2052,9 @@
     var classFills = {
       'Class I':   { fill: { fgColor: { rgb: 'C6EFCE' } }, font: { color: { rgb: '006100' }, bold: true } },
       'Class II':  { fill: { fgColor: { rgb: 'FFEB9C' } }, font: { color: { rgb: '9C6500' }, bold: true } },
-      'Class III': { fill: { fgColor: { rgb: 'FFC7CE' } }, font: { color: { rgb: '9C0006' }, bold: true } }
+      'Class III': { fill: { fgColor: { rgb: 'FFC7CE' } }, font: { color: { rgb: '9C0006' }, bold: true } },
+      'Unclassified':  { fill: { fgColor: { rgb: 'E7E6E6' } }, font: { color: { rgb: '595959' }, bold: true } },
+      'Not specified': { fill: { fgColor: { rgb: 'E7E6E6' } }, font: { color: { rgb: '595959' } } }
     };
 
     var range = XLSX.utils.decode_range(ws['!ref']);
@@ -2104,7 +2109,7 @@
       if (company) lines.push('  author       = {{' + company + '}},');
       lines.push('  howpublished = {FDA Device Registration and Listing Database (GUDID)' + (udi ? ', UDI: ' + udi : '') + '},');
       lines.push('  year         = {' + y + '},');
-      if (udi) lines.push('  url          = {https://api.fda.gov/device/udi.json?search=identifiers.id:%22' + encodeURIComponent(udi) + '%22},');
+      if (udi) lines.push('  url          = {https://accessgudid.nlm.nih.gov/devices/' + encodeURIComponent(udi) + '},');
       lines.push('  note         = {' + (cls ? 'Device ' + cls : 'Device class unknown') + (cat ? ' — ' + cat : '') + '; exported from Devicera; data via openFDA}');
       lines.push('}');
       out.push(lines.join('\n'));
@@ -2195,7 +2200,13 @@
     if (v === 'Class I') return 'c1';
     if (v === 'Class II') return 'c2';
     if (v === 'Class III') return 'c3';
-    return '';
+    return 'cu'; // Unclassified / Not specified — neutral gray
+  }
+
+  // Human-readable AccessGUDID page for one device — the verify-at-source
+  // link used by the table, the CSV/Excel URL column, and BibTeX.
+  function gudidURL(udi) {
+    return 'https://accessgudid.nlm.nih.gov/devices/' + encodeURIComponent(udi);
   }
 
   function renderDevicesSection() {
@@ -2210,6 +2221,9 @@
         var v = r[c[0]];
         o[c[1]] = c[0] === 'last_update' ? isoDate(v) : (v == null ? '' : v);
       });
+      // Extra export-only column (not in DEVICE_COLS, so not an on-screen
+      // column): the AccessGUDID verify link for CSV/Excel/JSON.
+      o['URL'] = o['UDI'] ? gudidURL(o['UDI']) : '';
       return o;
     });
     lastData.udi = rows;
@@ -2296,7 +2310,15 @@
         headers.forEach(function (h) {
           var td = document.createElement('td');
           if (h === 'UDI') td.className = 'udi-cell';
-          if (h === 'Device Class' && r[h]) {
+          if (h === 'UDI' && r[h]) {
+            var link = document.createElement('a');
+            link.href = gudidURL(r[h]);
+            link.target = '_blank';
+            link.rel = 'noopener';
+            link.title = 'Verify at AccessGUDID';
+            link.textContent = r[h] + ' ↗';
+            td.appendChild(link);
+          } else if (h === 'Device Class' && r[h]) {
             var b = document.createElement('span');
             b.className = 'class-badge ' + classBadgeCls(r[h]);
             b.textContent = r[h];

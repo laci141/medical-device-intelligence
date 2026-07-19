@@ -226,3 +226,62 @@ func TestServeCommandRegistered(t *testing.T) {
 		t.Error("command \"serve\" not registered")
 	}
 }
+
+// deviceRow must translate every device_class code — a raw one-character code
+// ("U", "N", "1", …) reaching the table or the exports is a bug.
+func TestDeviceRowClassNeverRaw(t *testing.T) {
+	rawFor := func(class any) map[string]any {
+		pc := map[string]any{"openfda": map[string]any{"device_class": class}}
+		return map[string]any{"product_codes": []any{pc}}
+	}
+	cases := map[string]string{
+		"1": "Class I",
+		"2": "Class II",
+		"3": "Class III",
+		"U": "Unclassified",
+		"N": "Unclassified",
+		"f": "Unclassified",
+		"":  "Not specified",
+	}
+	for in, want := range cases {
+		got, _ := deviceRow(rawFor(in))["device_class"].(string)
+		if got != want {
+			t.Errorf("device_class %q => %q, want %q", in, got, want)
+		}
+		if len(got) <= 1 {
+			t.Errorf("device_class %q leaked as raw code %q", in, got)
+		}
+	}
+	// No product_codes at all must still yield a translated value.
+	if got, _ := deviceRow(map[string]any{})["device_class"].(string); got != "Not specified" {
+		t.Errorf("missing product_codes => %q, want \"Not specified\"", got)
+	}
+}
+
+// openFDA's UDI endpoint serializes booleans as the strings "true"/"false";
+// sterilization and latex labeling must be read from either representation.
+func TestDeviceRowStringBooleans(t *testing.T) {
+	raw := map[string]any{
+		"sterilization":        map[string]any{"is_sterile": "true"},
+		"is_labeled_as_no_nrl": "true",
+	}
+	row := deviceRow(raw)
+	if row["sterilization"] != "Sterile" {
+		t.Errorf("string is_sterile=true => %q, want \"Sterile\"", row["sterilization"])
+	}
+	if row["latex"] != "Labeled latex-free" {
+		t.Errorf("string is_labeled_as_no_nrl=true => %q, want \"Labeled latex-free\"", row["latex"])
+	}
+
+	raw = map[string]any{
+		"sterilization":        map[string]any{"is_sterile": false},
+		"is_labeled_as_no_nrl": "false",
+	}
+	row = deviceRow(raw)
+	if row["sterilization"] != "Non-sterile" {
+		t.Errorf("bool is_sterile=false => %q, want \"Non-sterile\"", row["sterilization"])
+	}
+	if row["latex"] != "Not labeled latex-free" {
+		t.Errorf("string is_labeled_as_no_nrl=false => %q, want \"Not labeled latex-free\"", row["latex"])
+	}
+}
