@@ -191,7 +191,7 @@ func TestServeRootServesFrontend(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GET /: read body: %v", err)
 	}
-	for _, want := range []string{"<!DOCTYPE html>", "medical-device-intelligence", "/api/signals"} {
+	for _, want := range []string{"<!DOCTYPE html>", "Devicera", "/api/signals"} {
 		if !strings.Contains(string(body), want) {
 			t.Errorf("frontend HTML missing %q", want)
 		}

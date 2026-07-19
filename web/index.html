@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>medical-device-intelligence</title>
+<title>Devicera — Medical Device Intelligence & Regulatory Search</title>
+<meta name="description" content="Devicera (Pubvera): search medical device registrations, UDI codes, and FDA regulatory status — open data, keyless. Adverse events, recalls, trials, and publications, explained and sourced.">
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <script>
   // Apply persisted theme before first paint. Dark is the design default;
   // only an explicit stored "light" flips to the light glass theme.
@@ -119,6 +121,7 @@
     margin-bottom: 1.25rem;
   }
   header h1 { font-size: 1.05rem; font-weight: 700; letter-spacing: 0.2px; }
+  header .subtitle { font-size: 0.76rem; color: var(--ink-3); margin-top: 2px; }
   .badge {
     display: inline-block;
     font-family: var(--mono);
@@ -520,6 +523,68 @@
   }
   .prob-chip .cnt { color: var(--accent); font-weight: 700; margin-left: 5px; }
 
+  /* ---- Export suite: meta-row, download buttons, quick filter ---- */
+  .meta-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; gap: 12px; flex-wrap: wrap; }
+  .meta-row .meta { font-size: 0.82rem; color: var(--ink-2); }
+  .dl {
+    background: var(--glass-strong);
+    border: 1px solid var(--glass-border);
+    color: var(--ink-2);
+    padding: 4px 14px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 150ms ease, color 150ms ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .dl:hover { border-color: var(--accent); color: var(--ink); }
+  .dl-group { display: flex; gap: 8px; flex-shrink: 0; align-items: center; flex-wrap: wrap; }
+  .qfilter {
+    background: var(--glass-strong);
+    border: 1px solid var(--glass-border);
+    border-radius: 999px;
+    padding: 4px 14px;
+    color: var(--ink);
+    font-size: 0.78rem;
+    width: 190px;
+  }
+  .qfilter:focus { outline: none; border-color: var(--accent); }
+  .qcount { color: var(--accent); font-size: 0.78rem; font-weight: 600; margin-left: 6px; }
+  .quick-class3 { border-color: rgba(239, 68, 68, 0.5); color: var(--crit); }
+  .quick-class3.active { background: rgba(239, 68, 68, 0.18); }
+
+  /* ---- Device records table ---- */
+  .dev-card { padding: 1rem 1.1rem 1.2rem; }
+  .dev-table-wrap { overflow-x: auto; }
+  .dev-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+  .dev-table th {
+    cursor: pointer;
+    user-select: none;
+    text-align: left;
+    padding: 8px 10px;
+    color: var(--ink-2);
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid var(--glass-border);
+    white-space: nowrap;
+  }
+  .dev-table th .arrow { opacity: 0.7; margin-left: 4px; }
+  .dev-table td { padding: 7px 10px; border-bottom: 1px solid var(--glass-border); color: var(--ink-2); vertical-align: top; }
+  .dev-table td.udi-cell { font-family: var(--mono); font-size: 0.7rem; white-space: nowrap; }
+  .dev-table tr:last-child td { border-bottom: none; }
+  .class-badge { display: inline-block; font-size: 0.7rem; font-weight: 700; border-radius: 999px; padding: 2px 10px; border: 1px solid var(--glass-border); background: var(--glass); white-space: nowrap; }
+  .class-badge.c1 { color: var(--good); }
+  .class-badge.c2 { color: var(--warn); }
+  .class-badge.c3 { color: var(--crit); }
+
+  /* ---- Legal notice ---- */
+  .legal { margin-top: 1.25rem; padding: 1.2rem 1.4rem; }
+  .legal h2 { font-size: 0.9rem; margin-bottom: 8px; }
+  .legal p { font-size: 0.78rem; color: var(--ink-3); line-height: 1.6; }
+
   /* ---- Error card ---- */
   .error-card {
     border-color: rgba(239, 68, 68, 0.4);
@@ -651,7 +716,8 @@
 
 <header class="glass">
   <div>
-    <h1 style="display:inline">medical-device-intelligence</h1><span class="badge">v0.1.0</span>
+    <h1 style="display:inline">Pubvera · Devicera</h1><span class="badge">v0.1.0</span>
+    <div class="subtitle">Search medical device registrations, UDI codes, and FDA regulatory status — open data, keyless.</div>
   </div>
   <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Toggle dark mode">☀️</button>
 </header>
@@ -706,6 +772,17 @@
       “Methodology”. Data-quality readings on this page quantify some of these gaps.</p>
     </div>
   </div>
+</section>
+
+<section class="glass legal">
+  <h2>Legal notice</h2>
+  <p>Devicera is an independent research tool. It is not affiliated with, endorsed by, or
+  sponsored by the U.S. Food and Drug Administration or any manufacturer. Data is sourced
+  from the openFDA public API and the FDA Device Registration and Listing Database and may
+  be incomplete, delayed, or superseded. This tool cannot and should not be used for
+  clinical decision-making, device selection, or compliance assessment. Always verify
+  against the official FDA record and consult a qualified medical professional or regulatory
+  expert before making any decision.</p>
 </section>
 
 <footer class="glass">
@@ -1243,8 +1320,8 @@
 
   // The device term of the current search — the verify links need it.
   var currentDevice = '';
-  // Latest /api/trend and /api/failure-modes responses (rendered as extra cards).
-  var trendResp = null, problemsResp = null;
+  // Latest /api/trend, /api/failure-modes, and /api/devices responses.
+  var trendResp = null, problemsResp = null, devicesResp = null;
 
   function doSearch() {
     var device = input.value.trim();
@@ -1255,6 +1332,7 @@
     }
     emptyMsg.classList.add('hidden');
     currentDevice = device;
+    lastData.udi = lastData.trend = lastData.problems = lastData.signals = null;
 
     var enc = encodeURIComponent(device);
 
@@ -1265,12 +1343,17 @@
       fetchJson('/api/dossier?device=' + enc),
       fetchJson('/api/signals?device=' + enc),
       fetchJson('/api/trend?device=' + enc),
-      fetchJson('/api/failure-modes?device=' + enc)
+      fetchJson('/api/failure-modes?device=' + enc),
+      fetchJson('/api/devices?device=' + enc)
     ]).then(function (pair) {
       setLoading(false);
       clearChildren(results);
       trendResp = pair[2];
       problemsResp = pair[3];
+      devicesResp = pair[4];
+      lastData.trend = trendResp.ok ? (trendResp.data.records || null) : null;
+      lastData.problems = problemsResp.ok ? (problemsResp.data.records || null) : null;
+      lastData.signals = pair[1].ok ? (pair[1].data.records || null) : null;
       renderResults(pair[0], pair[1]);
     }).catch(function (err) {
       setLoading(false);
@@ -1433,6 +1516,8 @@
       anyOk = true;
       renderBentoTop(dossierResp.data, signalsResp.ok ? signalsResp.data : null);
     }
+
+    renderDevicesSection();
 
     if (!signalsResp.ok && !dossierResp.ok) {
       renderApiError('Signals lookup failed', signalsResp);
@@ -1885,6 +1970,371 @@
     note.textContent = 'Device problem terms as filed in MAUDE, verbatim.';
     card.appendChild(note);
     return card;
+  }
+
+  // ============================================================
+  // Export suite: lastData store + CSV / Excel / BibTeX / JSON.
+  // ============================================================
+  var lastData = { udi: null, trend: null, problems: null, signals: null };
+
+  var ANALYSIS_LABEL = {
+    udi: 'UDI device records',
+    trend: 'Yearly MAUDE report trend',
+    problems: 'Top reported problems',
+    signals: 'Signal readings'
+  };
+
+  function rowsFromLastData(key) {
+    var d = lastData[key];
+    if (!d) return null;
+    if (Array.isArray(d)) return d;
+    if (typeof d === 'object') {
+      for (var k in d) { if (Array.isArray(d[k])) return d[k]; }
+    }
+    return null;
+  }
+
+  // CSV (RFC4180). Excel-safe: BOM + CRLF + explicit separator hint so EU
+  // locales (semicolon-delimited by default) still open it into columns.
+  function toCSV(rows) {
+    var cols = [];
+    rows.forEach(function (r) { Object.keys(r || {}).forEach(function (k) { if (cols.indexOf(k) === -1) cols.push(k); }); });
+    var cell = function (v) {
+      // Booleans go out as text, otherwise Excel localises them (IGAZ/HAMIS).
+      if (v === null || v === undefined || v === false) return '';
+      if (v === true) return "Yes";
+      var s = (typeof v === 'object') ? JSON.stringify(v) : String(v);
+      if (/[",\r\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+      return s;
+    };
+    var lines = ["sep=,", cols.map(cell).join(',')];
+    rows.forEach(function (r) { lines.push(cols.map(function (c) { return cell(r ? r[c] : ''); }).join(',')); });
+    return '﻿' + lines.join('\r\n');
+  }
+
+  function downloadCSV(key, filename) {
+    var rows = rowsFromLastData(key);
+    if (!rows || !rows.length) { alert('Run a search first.'); return; }
+    triggerDownload(new Blob([toCSV(rows)], { type: 'text/csv;charset=utf-8' }), filename);
+  }
+
+  // XLSX: styled header, measured column widths, centered short values,
+  // left-aligned long text, and a color-coded Device Class column.
+  function downloadXLSX(key, filename) {
+    var rows = rowsFromLastData(key);
+    if (!rows || !rows.length) { alert('Run a search first.'); return; }
+    var cols = [];
+    rows.forEach(function (r) { Object.keys(r || {}).forEach(function (k) { if (cols.indexOf(k) === -1) cols.push(k); }); });
+    var aoa = [cols].concat(rows.map(function (r) {
+      return cols.map(function (c) {
+        var v = r ? r[c] : '';
+        if (v === null || v === undefined || v === false) return '';
+        if (v === true) return "Yes";
+        return (typeof v === 'object') ? JSON.stringify(v) : v;
+      });
+    }));
+    var ws = XLSX.utils.aoa_to_sheet(aoa);
+
+    var colInfo = cols.map(function (c) {
+      var max = String(c).length, sum = 0, cnt = 0;
+      rows.forEach(function (r) { var v = r ? r[c] : ''; var L = String(v == null ? '' : v).length; if (L > max) max = L; sum += L; cnt++; });
+      var avg = cnt ? sum / cnt : 0;
+      var isLong = (max > 22) || (avg > 18);
+      return { wch: Math.min(Math.max(max + 2, 9), isLong ? 90 : 24), left: isLong };
+    });
+
+    // FDA risk class color-coding: Class I green (low risk), Class II yellow
+    // (moderate), Class III red (high/critical) — readable at first glance.
+    var classCol = cols.indexOf('Device Class');
+    var classFills = {
+      'Class I':   { fill: { fgColor: { rgb: 'C6EFCE' } }, font: { color: { rgb: '006100' }, bold: true } },
+      'Class II':  { fill: { fgColor: { rgb: 'FFEB9C' } }, font: { color: { rgb: '9C6500' }, bold: true } },
+      'Class III': { fill: { fgColor: { rgb: 'FFC7CE' } }, font: { color: { rgb: '9C0006' }, bold: true } }
+    };
+
+    var range = XLSX.utils.decode_range(ws['!ref']);
+    var centerH = { vertical: 'center', horizontal: 'center', wrapText: false };
+    for (var R = range.s.r; R <= range.e.r; R++) {
+      for (var C = range.s.c; C <= range.e.c; C++) {
+        var addr = XLSX.utils.encode_cell({ r: R, c: C });
+        if (!ws[addr]) continue;
+        if (R === 0) {
+          ws[addr].s = { font: { bold: true, color: { rgb: 'FFFFFF' } }, alignment: centerH,
+            fill: { fgColor: { rgb: '4472C4' } },
+            border: { bottom: { style: 'thin', color: { rgb: '999999' } } } };
+        } else {
+          var s = { alignment: { vertical: 'center', horizontal: (colInfo[C] && colInfo[C].left) ? 'left' : 'center', wrapText: false } };
+          if (C === classCol) {
+            var extra = classFills[String(ws[addr].v)];
+            if (extra) { s.fill = extra.fill; s.font = extra.font; s.alignment = centerH; }
+          }
+          ws[addr].s = s;
+        }
+      }
+    }
+    ws['!cols'] = colInfo.map(function (ci) { return { wch: ci.wch }; });
+    ws['!freeze'] = { xSplit: 0, ySplit: 1 };
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Devicera');
+    XLSX.writeFile(wb, filename);
+  }
+
+  // BibTeX: a medical device is a regulatory record, not an article — every
+  // entry is @misc, cited by its UDI when one exists.
+  function bibEsc(v) { return String(v == null ? '' : v).replace(/[{}\\]/g, '').trim(); }
+
+  function bibKeyForDevice(r, i) {
+    var udi = String(r['UDI'] || '').replace(/[^A-Za-z0-9]/g, '');
+    if (udi) return 'UDI-' + udi;
+    var n = String(r['Device Name'] || 'device').split(/\s+/)[0].replace(/[^A-Za-z0-9]/g, '');
+    return (n || 'device').toLowerCase() + '_' + (i + 1);
+  }
+
+  function toBibTeX(rows) {
+    var y = new Date().getFullYear();
+    var out = [];
+    rows.forEach(function (r, i) {
+      var title = bibEsc(String(r['Device Name'] || '').slice(0, 80)) || 'Unnamed medical device';
+      var company = bibEsc(r['Company'] || '');
+      var udi = bibEsc(r['UDI'] || '');
+      var cls = bibEsc(r['Device Class'] || '');
+      var cat = bibEsc(r['Product Category'] || '');
+      var lines = ['@misc{' + bibKeyForDevice(r, i) + ','];
+      lines.push('  title        = {' + title + '},');
+      if (company) lines.push('  author       = {{' + company + '}},');
+      lines.push('  howpublished = {FDA Device Registration and Listing Database (GUDID)' + (udi ? ', UDI: ' + udi : '') + '},');
+      lines.push('  year         = {' + y + '},');
+      if (udi) lines.push('  url          = {https://api.fda.gov/device/udi.json?search=identifiers.id:%22' + encodeURIComponent(udi) + '%22},');
+      lines.push('  note         = {' + (cls ? 'Device ' + cls : 'Device class unknown') + (cat ? ' — ' + cat : '') + '; exported from Devicera; data via openFDA}');
+      lines.push('}');
+      out.push(lines.join('\n'));
+    });
+    return out.join('\n\n') + '\n';
+  }
+
+  // Non-device result sets get a dataset-style @misc citation of the analysis.
+  function analysisBibTeX(key, rows) {
+    var y = new Date().getFullYear();
+    return '@misc{devicera_' + key + '_' + y + ',\n' +
+      '  title  = {' + bibEsc(ANALYSIS_LABEL[key] || 'Device analysis') + (currentDevice ? ': ' + bibEsc(currentDevice) : '') + '},\n' +
+      '  author = {{Devicera}},\n' +
+      '  year   = {' + y + '},\n' +
+      '  howpublished = {Devicera regulatory analytics},\n' +
+      '  note   = {Analysis of ' + (rows ? rows.length : 0) + ' records; underlying data from openFDA},\n' +
+      '  url    = {' + window.location.origin + '/}\n' +
+      '}\n';
+  }
+
+  function downloadBibTeX(key, filename) {
+    var rows = rowsFromLastData(key);
+    if (!rows || !rows.length) { alert('Run a search first.'); return; }
+    var devices = rows.filter(function (r) { return r && (r['UDI'] || r['Device Name']); });
+    var text = devices.length ? toBibTeX(devices) : analysisBibTeX(key, rows);
+    triggerDownload(new Blob([text], { type: 'application/x-bibtex;charset=utf-8' }), filename);
+  }
+
+  function downloadJSON(key, filename) {
+    var d = lastData[key];
+    if (!d) { alert('Run a search first.'); return; }
+    triggerDownload(new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' }), filename);
+  }
+
+  function triggerDownload(blob, filename) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  // The metaRow buttons use inline onclick, so the handlers must be global.
+  window.downloadCSV = downloadCSV;
+  window.downloadXLSX = downloadXLSX;
+  window.downloadBibTeX = downloadBibTeX;
+  window.downloadJSON = downloadJSON;
+
+  // metaRow builds the result header: count + quick filter + download buttons.
+  function metaRow(text, key, filename) {
+    var csvName = String(filename).replace(/\.json$/i, '.csv');
+    var xlsxName = String(filename).replace(/\.json$/i, '.xlsx');
+    var bibName = String(filename).replace(/\.json$/i, '.bib');
+    return '<div class="meta-row"><span class="meta">' + text + '<span class="qcount"></span></span>' +
+      '<span class="dl-group">' +
+      '<input class="qfilter" type="text" placeholder="🔍 Filter results…">' +
+      (key === 'udi' ? '<button type="button" class="dl quick-class3" title="Show only Class III (highest-risk classification) devices">⚠ Class III</button>' : '') +
+      '<button type="button" class="dl" title="BibTeX citations for these device records (@misc)" onclick="downloadBibTeX(\'' + key + '\',\'' + bibName + '\')">⬇ BibTeX</button>' +
+      '<button type="button" class="dl" onclick="downloadXLSX(\'' + key + '\',\'' + xlsxName + '\')">⬇ Excel</button>' +
+      '<button type="button" class="dl" onclick="downloadCSV(\'' + key + '\',\'' + csvName + '\')">⬇ CSV</button>' +
+      '<button type="button" class="dl" onclick="downloadJSON(\'' + key + '\',\'' + filename + '\')">⬇ JSON</button>' +
+      '</span></div>';
+  }
+
+  // ---- Device Records (GUDID) table: quick filter, sortable columns ----
+  var DEVICE_COLS = [
+    ['udi', 'UDI'],
+    ['device_name', 'Device Name'],
+    ['company', 'Company'],
+    ['device_class', 'Device Class'],
+    ['product_category', 'Product Category'],
+    ['registration_status', 'Registration Status'],
+    ['listing_status', 'Listing Status'],
+    ['sterilization', 'Sterilization'],
+    ['latex', 'Latex Content'],
+    ['last_update', 'Last Update']
+  ];
+
+  function isoDate(v) {
+    var m = /^(\d{4}-\d{2}-\d{2})/.exec(String(v || ''));
+    return m ? m[1] : String(v || '');
+  }
+
+  function classBadgeCls(v) {
+    if (v === 'Class I') return 'c1';
+    if (v === 'Class II') return 'c2';
+    if (v === 'Class III') return 'c3';
+    return '';
+  }
+
+  function renderDevicesSection() {
+    if (!devicesResp || !devicesResp.ok) return;
+    var recs = devicesResp.data.records || [];
+    if (!recs.length) return;
+
+    // Display-keyed rows: these keys become the CSV/Excel column headers.
+    var rows = recs.map(function (r) {
+      var o = {};
+      DEVICE_COLS.forEach(function (c) {
+        var v = r[c[0]];
+        o[c[1]] = c[0] === 'last_update' ? isoDate(v) : (v == null ? '' : v);
+      });
+      return o;
+    });
+    lastData.udi = rows;
+    var headers = DEVICE_COLS.map(function (c) { return c[1]; });
+
+    var heading = document.createElement('h2');
+    heading.className = 'section';
+    heading.textContent = '📇 Device Records (' + rows.length + ')';
+    results.appendChild(heading);
+    var desc = document.createElement('div');
+    desc.className = 'group-desc';
+    desc.textContent = 'GUDID registration and listing records matching this term — click a column header to sort.';
+    results.appendChild(desc);
+
+    var card = document.createElement('div');
+    card.className = 'glass dev-card';
+    var total = devicesResp.data.total;
+    var metaTxt = rows.length + ' records' + (total && total > rows.length ? ' of ' + fmtNum(total) : '');
+    card.innerHTML = metaRow(metaTxt, 'udi', 'devicera-devices.json');
+
+    var wrap = elDiv('dev-table-wrap');
+    var table = document.createElement('table');
+    table.className = 'dev-table';
+    var thead = document.createElement('thead');
+    var htr = document.createElement('tr');
+    headers.forEach(function (h, i) {
+      var th = document.createElement('th');
+      th.setAttribute('data-idx', String(i));
+      th.textContent = h;
+      var arrow = document.createElement('span');
+      arrow.className = 'arrow';
+      arrow.textContent = '⇅';
+      th.appendChild(arrow);
+      htr.appendChild(th);
+    });
+    thead.appendChild(htr);
+    var tbody = document.createElement('tbody');
+    table.appendChild(thead);
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    card.appendChild(wrap);
+
+    var state = { filter: '', class3: false, sortIdx: -1, sortDir: 0 };
+    var numRe = /^-?\d+(\.\d+)?$/;
+
+    function viewRows() {
+      var out = rows.filter(function (r) {
+        if (state.class3 && r['Device Class'] !== 'Class III') return false;
+        if (state.filter) {
+          var f = state.filter.toLowerCase();
+          var hit = headers.some(function (h) { return String(r[h]).toLowerCase().indexOf(f) !== -1; });
+          if (!hit) return false;
+        }
+        return true;
+      });
+      if (state.sortIdx >= 0 && state.sortDir !== 0) {
+        var h = headers[state.sortIdx];
+        // Numeric sort only when every non-empty cell is a plain number;
+        // ISO dates and text compare lexicographically (correct for YYYY-MM-DD).
+        var numeric = out.some(function (r) { return String(r[h]).trim() !== ''; }) &&
+          out.every(function (r) { var v = String(r[h]).trim(); return v === '' || numRe.test(v); });
+        out.sort(function (a, b) {
+          var va = String(a[h]).trim(), vb = String(b[h]).trim();
+          if (va === '' && vb !== '') return 1;
+          if (vb === '' && va !== '') return -1;
+          var cmp = numeric ? (parseFloat(va) - parseFloat(vb)) : va.localeCompare(vb);
+          return state.sortDir * (cmp || 0);
+        });
+      }
+      return out;
+    }
+
+    function updateArrows() {
+      Array.prototype.forEach.call(table.querySelectorAll('th .arrow'), function (a, i) {
+        a.textContent = (i === state.sortIdx) ? (state.sortDir === 1 ? '↑' : '↓') : '⇅';
+      });
+    }
+
+    function renderBody() {
+      clearChildren(tbody);
+      var vr = viewRows();
+      vr.forEach(function (r) {
+        var tr = document.createElement('tr');
+        headers.forEach(function (h) {
+          var td = document.createElement('td');
+          if (h === 'UDI') td.className = 'udi-cell';
+          if (h === 'Device Class' && r[h]) {
+            var b = document.createElement('span');
+            b.className = 'class-badge ' + classBadgeCls(r[h]);
+            b.textContent = r[h];
+            td.appendChild(b);
+          } else {
+            td.textContent = r[h];
+          }
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+      var qc = card.querySelector('.qcount');
+      if (qc) qc.textContent = ' · ' + vr.length + ' / ' + rows.length + ' rows';
+      updateArrows();
+    }
+
+    // ONE delegated click handler for every th: unsorted → asc → desc → off.
+    table.addEventListener('click', function (e) {
+      var th = e.target && e.target.closest ? e.target.closest('th') : null;
+      if (!th || !table.contains(th)) return;
+      var idx = +th.getAttribute('data-idx');
+      if (state.sortIdx !== idx) { state.sortIdx = idx; state.sortDir = 1; }
+      else if (state.sortDir === 1) { state.sortDir = -1; }
+      else { state.sortIdx = -1; state.sortDir = 0; }
+      renderBody();
+    });
+
+    var qf = card.querySelector('.qfilter');
+    if (qf) qf.addEventListener('input', function () { state.filter = qf.value.trim(); renderBody(); });
+    var q3 = card.querySelector('.quick-class3');
+    if (q3) q3.addEventListener('click', function () {
+      state.class3 = !state.class3;
+      q3.classList.toggle('active', state.class3);
+      renderBody();
+    });
+
+    renderBody();
+    results.appendChild(stagger(card));
   }
 
   function signalCard(n) {

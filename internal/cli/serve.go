@@ -130,6 +130,7 @@ func NewServeHandler() http.Handler {
 	mux.HandleFunc("/api/health", handleHealth)
 	mux.HandleFunc("/api/trend", handleTrend)
 	mux.HandleFunc("/api/failure-modes", handleFailureModes)
+	mux.HandleFunc("/api/devices", handleDevices)
 	for path, route := range apiRoutes {
 		mux.HandleFunc(path, routeHandler(route))
 	}
@@ -406,6 +407,138 @@ func handleFailureModes(w http.ResponseWriter, r *http.Request) {
 		"records":    rows,
 		"count":      len(rows),
 		"note":       "device problem terms as filed in MAUDE, verbatim (product_problems.exact)",
+		"disclaimer": cliutil.Disclaimer,
+	})
+}
+
+// asMaps coerces a raw []any JSON field into its object elements.
+func asMaps(v any) []map[string]any {
+	list, _ := v.([]any)
+	out := make([]map[string]any, 0, len(list))
+	for _, e := range list {
+		if m, ok := e.(map[string]any); ok {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
+// deviceRow flattens one GUDID record into the registration-style table row
+// the frontend renders and exports. Missing fields stay empty strings so the
+// table and the exports never show "null".
+func deviceRow(raw map[string]any) map[string]any {
+	udi := ""
+	ids := asMaps(raw["identifiers"])
+	for _, id := range ids {
+		if str(id["type"]) == "Primary" {
+			udi = str(id["id"])
+			break
+		}
+	}
+	if udi == "" && len(ids) > 0 {
+		udi = str(ids[0]["id"])
+	}
+
+	class, category := "", ""
+	if pcs := asMaps(raw["product_codes"]); len(pcs) > 0 {
+		if of, ok := pcs[0]["openfda"].(map[string]any); ok {
+			class = str(of["device_class"])
+			category = str(of["device_name"])
+		}
+		if category == "" {
+			category = str(pcs[0]["name"])
+		}
+	}
+	switch class {
+	case "1":
+		class = "Class I"
+	case "2":
+		class = "Class II"
+	case "3":
+		class = "Class III"
+	}
+
+	sterile := ""
+	if st, ok := raw["sterilization"].(map[string]any); ok {
+		if b, ok := st["is_sterile"].(bool); ok {
+			if b {
+				sterile = "Sterile"
+			} else {
+				sterile = "Non-sterile"
+			}
+		}
+		if m := str(st["sterilization_methods"]); m != "" {
+			if sterile == "" {
+				sterile = m
+			} else {
+				sterile += " (" + m + ")"
+			}
+		}
+	}
+
+	latex := ""
+	if b, ok := raw["is_labeled_as_no_nrl"].(bool); ok {
+		if b {
+			latex = "Labeled latex-free"
+		} else {
+			latex = "Not labeled latex-free"
+		}
+	}
+
+	name := str(raw["brand_name"])
+	if name == "" {
+		name = clip(str(raw["device_description"]), 80)
+	}
+	last := str(raw["public_version_date"])
+	if last == "" {
+		last = str(raw["publish_date"])
+	}
+
+	return map[string]any{
+		"udi":                 udi,
+		"device_name":         name,
+		"company":             str(raw["company_name"]),
+		"device_class":        class,
+		"product_category":    category,
+		"registration_status": str(raw["record_status"]),
+		"listing_status":      str(raw["commercial_distribution_status"]),
+		"sterilization":       sterile,
+		"latex":               latex,
+		"last_update":         last,
+	}
+}
+
+// handleDevices answers /api/devices?device=X with flattened GUDID device
+// records (registration-style rows) from the existing openFDA UDI source.
+// Same direct-data pattern as handleTrend: the source itself is untouched.
+func handleDevices(w http.ResponseWriter, r *http.Request) {
+	if !allowGET(w, r) {
+		return
+	}
+	device := strings.TrimSpace(r.URL.Query().Get("device"))
+	if device == "" {
+		writeJSONError(w, http.StatusBadRequest, "device required")
+		return
+	}
+	src, ok := getSource("openfda_device_udi")
+	if !ok {
+		writeJSONError(w, http.StatusBadGateway, "UDI source unavailable")
+		return
+	}
+	recs, page, err := src.Fetch(r.Context(), sources.Query{Term: device, Limit: 100})
+	if err != nil {
+		writeJSONError(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	rows := make([]map[string]any, 0, len(recs))
+	for _, rec := range recs {
+		rows = append(rows, deviceRow(rec.Raw))
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"records":    rows,
+		"count":      len(rows),
+		"total":      page.Total,
+		"note":       "GUDID device records via openFDA device/udi (brand-name or UDI-DI match); registration data may be incomplete or delayed",
 		"disclaimer": cliutil.Disclaimer,
 	})
 }
